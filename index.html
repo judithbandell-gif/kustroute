@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Langs de kust naar Jávea</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Public+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Indeling zoals de Mooiste Dorpen-gids: kaart links (iPad/laptop) of bovenaan (telefoon), rechts/onder de gids per regio. */
+:root{
+  --bg:#eef0eb; --surface:#f6f7f3; --card:#ffffff; --fg:#1f241e; --muted:#5d665a; --line:#d6dbd1; --star:#a8720c;
+  --free:#1d3a56; --paid:#c0601c; --own:#e8a20c;
+  --display:"Young Serif", Georgia, serif; --body:"Public Sans", system-ui, -apple-system, sans-serif;
+  --aside:520px; --maph:42dvh; color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#131715; --surface:#181d1a; --card:#212723; --fg:#e7eae4; --muted:#a2ab9e; --line:#333b35; --star:#e0b04a; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.55}
+a{color:inherit}
+button{font:inherit;color:inherit}
+button:focus-visible,input:focus-visible,a:focus-visible,.card:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.app{display:flex;flex-direction:column;min-height:100dvh}
+.main{flex:1;display:flex;flex-direction:column}
+.mapwrap{height:var(--maph);position:sticky;top:0;z-index:5;border-bottom:1px solid var(--line)}
+#map{position:absolute;inset:0;background:#dfe3dc}
+.guide{padding:0 16px calc(env(safe-area-inset-bottom,0px) + 60px);min-width:0}
+@media (min-width:860px){
+  .app{height:100dvh}
+  .main{flex-direction:row;min-height:0}
+  .mapwrap{height:auto;flex:1;position:relative;border-bottom:0;border-right:1px solid var(--line)}
+  .guide{width:var(--aside);flex:none;overflow-y:auto;padding-inline:22px}
+}
+@media (min-width:1300px){:root{--aside:600px}}
+.hero{padding:calc(env(safe-area-inset-top,0px) + 22px) 0 6px;display:flex;flex-direction:column;gap:8px}
+.hero h1{font-family:var(--display);font-weight:400;font-size:2rem;line-height:1.12;margin:0;text-wrap:balance}
+.hero p{margin:0;color:var(--muted);max-width:60ch}
+.stats{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.stats b{color:var(--fg);font-weight:600}
+.howto{font-size:.86rem;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:grid;gap:6px}
+.howto div{display:flex;gap:8px;align-items:center}
+.tools{position:sticky;top:0;z-index:4;background:var(--bg);padding:12px 0 10px;display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--line)}
+@media (max-width:859px){.tools{top:var(--maph)}.card,.region{scroll-margin-top:calc(var(--maph) + 120px)!important}}
+.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.jump::-webkit-scrollbar{display:none}
+.jb{flex:none;display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 3px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:.78rem;font-weight:600;cursor:pointer;white-space:nowrap}
+.jb i,.ov-n,.pg-n{font-style:normal;display:inline-grid;place-items:center;border-radius:50%;color:#fff;background:var(--c);font-weight:600;flex:none}
+.jb i{width:22px;height:22px;font-size:.72rem}
+.ov{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.ov h2{font-family:var(--display);font-weight:400;font-size:1.2rem;margin:0 0 4px}
+.ov-list{display:grid;grid-template-columns:1fr;gap:6px}
+@media (min-width:1300px){.ov-list{grid-template-columns:1fr 1fr}}
+.ov-row{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--card);text-decoration:none;min-width:0}
+.ov-row:hover{border-color:var(--muted)}
+.ov-n{width:30px;height:30px;font-size:.85rem}
+.ov-t{display:flex;flex-direction:column;min-width:0}
+.ov-t b{font-weight:600;font-size:.92rem;line-height:1.25}
+.ov-t small{color:var(--muted);font-size:.76rem}
+.ov-go{margin-left:auto;color:var(--muted);font-size:1.1rem}
+.more{align-self:flex-start;text-decoration:none;font-weight:600;font-size:.88rem;padding:8px 14px;border-radius:8px;background:var(--c);color:#fff}
+#page{max-width:900px;margin:0 auto;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px calc(env(safe-area-inset-bottom,0px) + 60px)}
+.pg-top{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;position:sticky;top:0;background:var(--bg);padding:10px 0;z-index:3;border-bottom:1px solid var(--line)}
+.pg-top a{text-decoration:none;font-weight:600;font-size:.88rem;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+.pg-nav{display:flex;gap:6px}
+.pg-hero{padding:26px 0 8px;display:flex;flex-direction:column;gap:10px;border-bottom:3px solid var(--c);margin-bottom:8px}
+.pg-n{width:48px;height:48px;font-size:1.3rem}
+.pg-hero h1{font-family:var(--display);font-weight:400;font-size:2.3rem;line-height:1.08;margin:0;text-wrap:balance}
+.pg-hero .sub{color:var(--muted)}
+.pg-hero .lead{font-size:1.12rem;max-width:62ch;margin:0}
+.facts{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin:18px 0 8px}
+.fact{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.fact h3{margin:0 0 4px;font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.fact p{margin:0;font-size:.95rem}
+.pg-sec{margin-top:30px;display:flex;flex-direction:column;gap:12px}
+.pg-sec>h2{font-family:var(--display);font-weight:400;font-size:1.5rem;margin:0;display:flex;align-items:center;gap:10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:12px;align-items:start}
+.rg-link{border-color:var(--c);color:var(--fg)}
+.onmap{background:none;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.84rem;font-weight:600;cursor:pointer}
+#page .card{cursor:default}
+#page[hidden],.app[hidden]{display:none}
+.row2{display:flex;gap:8px;align-items:center}
+.search{flex:1;min-width:0;font:inherit;font-size:16px;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+.ftoggle{flex:none;font-size:.82rem;font-weight:600;padding:8px 12px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.filters{display:flex;flex-wrap:wrap;gap:6px}
+.filters[hidden]{display:none}
+.fbtn{font-size:.78rem;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.fbtn[aria-pressed="false"]{opacity:.45}
+.sw{width:10px;height:10px;border-radius:3px;border:2.5px solid var(--c);flex:none;background:var(--card)}
+.region{padding-top:26px;display:flex;flex-direction:column;gap:14px;scroll-margin-top:120px}
+.region[hidden]{display:none}
+.rhead{display:flex;gap:12px;align-items:flex-start}
+.rnum{flex:none;width:36px;height:36px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:600;background:var(--c);margin-top:2px}
+.rhead h2{font-family:var(--display);font-weight:400;font-size:1.5rem;line-height:1.15;margin:0}
+.rhead .sub{font-size:.8rem;color:var(--muted)}
+.rtip{margin:0;padding:12px 14px;border-left:3px solid var(--c);background:var(--surface);border-radius:0 8px 8px 0;font-size:.94rem}
+.label{font-size:.7rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:600;margin:6px 0 -4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden;cursor:pointer;scroll-margin-top:140px;transition:border-color .2s, box-shadow .2s}
+.card:hover{border-color:var(--muted)}
+.card.on{border-color:var(--fg);box-shadow:0 0 0 2px var(--fg)}
+.card[hidden]{display:none}
+.ph{aspect-ratio:16/8;background:var(--line);max-width:100%;position:relative}
+.ph img{width:100%;height:100%;object-fit:cover;display:block;opacity:0;transition:opacity .4s}
+.ph img.ok{opacity:1}
+.ph.none{display:none}
+.ph .cr{position:absolute;right:6px;bottom:6px;font-size:.65rem;color:#fff;background:rgba(0,0,0,.45);padding:1px 6px;border-radius:3px}
+.cb{padding:14px 16px 16px;display:flex;flex-direction:column;gap:8px}
+.ct{display:flex;align-items:baseline;gap:10px}
+.ct h3{font-family:var(--display);font-weight:400;font-size:1.3rem;line-height:1.2;margin:0;min-width:0}
+.ct .nr{margin-left:auto;font-size:.75rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb p{margin:0}
+.drive{font-size:.84rem;color:var(--muted)}
+.doen{padding:10px 12px;border-radius:8px;background:var(--surface);font-size:.93rem}
+.fiets{padding:10px 12px;border-radius:8px;background:color-mix(in srgb,#6a3fa0 9%,var(--surface));font-size:.93rem}
+.fiets b{display:block;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:#6a3fa0;font-weight:700;margin-bottom:2px}
+@media (prefers-color-scheme:dark){.fiets b{color:#c9a6f0}}
+.onpath{background:none;border:1px solid var(--line);border-radius:8px;padding:7px 12px;font-size:.84rem;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.ln{display:inline-block;width:22px;height:0;border-top:4px solid #6b3d14;vertical-align:middle}
+.ln.w{border-top:4px dashed #6b3d14}
+.ln.f{border-top-color:#6a3fa0}
+.ln.o{border-top:3px solid #c8463c;width:18px}
+.trtip{font-weight:600}
+.meer{border-top:1px solid var(--line);padding-top:10px;display:grid;gap:8px;font-size:.95rem}
+.meer p{margin:0}
+.wlink{font-size:.84rem;font-weight:600;color:var(--muted)}
+.more-b{cursor:pointer;font-family:inherit;color:inherit}
+.doen b{display:block;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600;margin-bottom:2px}
+.flags{display:flex;flex-wrap:wrap;gap:6px}
+.flag{font-size:.74rem;padding:2px 8px;border-radius:4px;border:1px solid var(--line);color:var(--muted)}
+.flag.warn{border-color:var(--star);color:var(--fg)}
+.flag.bad{border-color:#b3261e;color:#b3261e;font-weight:600}
+.flag.type{color:var(--fg);border-color:var(--c)}
+.flag.own{border-color:var(--own);background:color-mix(in srgb,var(--own) 18%,transparent);color:var(--fg);font-weight:600}
+.flag.fr{border-color:var(--free);color:var(--fg);font-weight:600}
+.flag.pd{border-color:var(--paid);color:var(--fg);font-weight:600}
+.kv{font-size:.86rem;display:grid;grid-template-columns:auto 1fr;gap:2px 10px}
+.kv dt{color:var(--muted)}.kv dd{margin:0}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:2px}
+.lnk{display:inline-flex;align-items:center;text-decoration:none;font-size:.84rem;font-weight:600;padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--surface);min-height:36px}
+.lnk.main{background:var(--fg);color:var(--card);border-color:var(--fg)}
+.compact .ph{aspect-ratio:16/6}
+.note{font-size:.8rem;color:var(--muted);margin:22px 0 0}
+.mk{display:block;border-radius:50%;background:var(--c);border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);width:100%;height:100%;position:relative;transition:transform .2s}
+.mk.p{border-radius:4px;background:#fff;border:3px solid var(--c)}
+.mk.s{border-radius:5px;background:var(--free);border:2px solid #fff;color:#fff;font:700 10px/1 var(--body);display:grid;place-items:center}
+.mk.s::before{content:"P"}
+.mk.s.e{background:var(--paid)}
+.mk.s.e::before{content:"€"}
+.mk.s.own{border:3px solid var(--own)}
+.mk.s.warn{opacity:.55}
+.mk.v{font:700 10px/1 var(--body);color:#fff;display:grid;place-items:center}
+.card.sleep{border-left:4px solid var(--free)}
+.card.sleep.e{border-left-color:var(--paid)}
+.card.sleep .ct h3{font-size:1.12rem}
+.score{font-weight:700;color:var(--fg)}
+.sleepline{font-size:.88rem;display:flex;flex-direction:column;gap:4px;padding:8px 10px;border-radius:8px;border:1px dashed var(--line)}
+.sleepline button{background:none;border:0;padding:0;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;text-align:left}
+.ps{display:inline-grid;place-items:center;width:16px;height:16px;border-radius:4px;background:var(--free);color:#fff;font-size:.62rem;font-weight:700;flex:none}
+.ps.e{background:var(--paid)}
+.ps.o{background:#fff;border:2.5px solid var(--own);color:var(--fg)}
+.mk.sel{transform:scale(1.8)}
+.mk.sel::after{content:"";position:absolute;inset:-7px;border-radius:inherit;border:3px solid var(--c);animation:pulse 1.4s ease-out infinite}
+@keyframes pulse{0%{opacity:1;transform:scale(.7)}100%{opacity:0;transform:scale(2)}}
+@media (prefers-reduced-motion:reduce){.mk.sel::after{animation:none;opacity:.8}.mk,.card,.ph img{transition:none}}
+.leaflet-tooltip.lbl{background:transparent;border:0;box-shadow:none;padding:0 0 0 2px;font-family:var(--body);font-weight:600;font-size:12px;color:#1f241e;text-shadow:0 0 3px #fff,0 0 3px #fff,0 0 2px #fff;display:none}
+.leaflet-tooltip.lbl::before{display:none}
+.leaflet-tooltip.lbl.p{font-weight:500;font-style:italic;font-size:11px}
+.zv .leaflet-tooltip.lbl.v,.zp .leaflet-tooltip.lbl.p,.leaflet-tooltip.lbl.on{display:block}
+.mapbtn{position:absolute;z-index:500;top:10px;right:10px;padding:7px 12px;border-radius:999px;border:1px solid #ccc;background:#fff;color:#1f241e;font-size:.8rem;font-weight:600;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.2)}
+.legend{position:absolute;z-index:500;right:10px;bottom:22px;background:rgba(255,255,255,.95);color:#1f241e;border-radius:10px;padding:8px 10px;font-size:.74rem;line-height:1.3;box-shadow:0 1px 4px rgba(0,0,0,.25);display:grid;gap:4px}
+.legend div{display:flex;align-items:center;gap:6px}
+.legend .dot{width:14px;height:14px;border-radius:50%;background:hsl(200 55% 42%);border:2px solid #fff;box-shadow:0 0 0 1px #999;color:#fff;font:700 8px/1 var(--body);display:grid;place-items:center}
+.legend .ln{width:18px}
+.legend .sq{width:11px;height:11px;border-radius:3px;background:#fff;border:3px solid #3d8a4b}
+.legend button{border:0;background:none;padding:0;font-size:.72rem;text-decoration:underline;cursor:pointer;justify-self:start;color:#1f241e}
+.legend.min div{display:none}
+@media (max-width:859px){.legend{bottom:28px;font-size:.7rem}}
+</style>
+</head>
+<body>
+<div class="app">
+ <div class="main">
+  <div class="mapwrap"><div id="map" role="application" aria-label="Kaart van de route"></div>
+   <button class="mapbtn" id="all" type="button">Hele route</button>
+   <div class="legend" id="legend">
+    <div><span class="dot">1</span>Plaats op de route, met nummer</div>
+    <div><span class="ps">P</span>Gratis slaapplek</div>
+    <div><span class="ps e">€</span>Betaald, met stroom</div>
+    <div><span class="ps o">P</span>Gele rand: uit jouw Google Maps</div>
+    <div><span class="sq"></span>Iets om te doen of te zien</div>
+    <div><span class="ln w"></span>Wandelpad uit de gids</div>
+    <div><span class="ln f"></span>Fietsroute uit de gids</div>
+    <div><span class="ln o"></span>Alle bewegwijzerde paden (inzoomen)</div>
+    <button type="button" id="legtog">Legenda verbergen</button>
+   </div>
+  </div>
+  <div class="guide" id="guide">
+   <header class="hero">
+    <h1>Langs de kust van Vidreres naar Jávea</h1>
+    <p>Van de cavastreek via de Ebro en de Delta, Peñíscola, Valencia en de Safor naar de Costa Blanca. Geen dagschema: blijf waar het fijn is. Tik op een plaats, plek of tip om hem op de kaart te zien. Tik op de kaart om erover te lezen.</p>
+    <div class="stats"><span><b id="nv">24</b> plaatsen</span><span><b id="npoi">0</b> tips</span><span><b id="nsl">0</b> camperplekken</span><span><b id="nown">0</b> uit jouw Google Maps</span><span><b>12</b> regio's</span><span><b>ca. 800</b> km als je alles doet</span></div>
+    <div class="howto">
+     <div><span class="ps">P</span>Gratis plek. Bij elke plaats staat er minstens één.</div>
+     <div><span class="ps e">€</span>Betaald met stroom, je reserve voor als de accu leeg is.</div>
+     <div><span class="ps o">P</span>Uit jouw eigen Google Maps-lijsten. Staan ze op Park4Night, dan heb ik ze daar nagecheckt.</div>
+     <div><span class="ln w"></span>De wandelpaden en <span class="ln f"></span> fietsroutes uit de gids staan als lijn op de kaart. Tik op een lijn voor de naam, de lengte en de route naar het begin.</div>
+     <div><span class="ln o"></span>Zoom je in, dan zie je ook alle andere bewegwijzerde wandel- en fietsroutes (GR, PR, EuroVelo). Aan en uit met het lagen-knopje linksonder.</div>
+    </div>
+    <section class="ov"><h2>De 12 regio's</h2><div class="ov-list" id="ov"></div></section>
+   </header>
+   <div class="tools">
+    <div class="jump" id="jump" aria-label="Spring naar regio"></div>
+    <div class="row2"><input class="search" id="q" type="search" placeholder="Zoek een plaats of plek" autocomplete="off"><button class="ftoggle" id="ft" type="button" aria-expanded="false">Filter</button></div>
+    <div class="filters" id="filters" hidden></div>
+   </div>
+   <div id="regions"></div>
+   <p class="note">De lijn op de kaart volgt de snelste route over de grote wegen (meestal de AP-7, A-7 of N-340), berekend met OpenStreetMap. Gestreepte stukken zijn optionele uitstapjes. De kilometers en rijtijden bij elke plaats horen bij die route, vanaf de vorige plaats; met de camper ben je meestal iets langer onderweg. Camperplekken, sterren en prijzen zijn op 24 november 2026 gecheckt op Park4Night, met de nieuwste reviews. Plekken uit je eigen lijsten die niet op Park4Night staan zijn niet nagecheckt; dat staat er dan bij. De wandelpaden en fietsroutes komen uit OpenStreetMap, net als de laag met alle bewegwijzerde routes (via Waymarked Trails). Foto's komen van de Spaanse Wikipedia. Check vlak voor vertrek of alles nog klopt.</p>
+  </div>
+ </div>
+</div>
+<main id="page" hidden></main>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const GROUPS = [
+ {t:"Penedès en Costa Daurada", sub:"Barcelona en Tarragona", tip:"Wil je de eerste dag kort houden, slaap dan in Sant Sadurní tussen de cavakelders. Daarna door naar Altafulla: daar sta je met uitzicht op het oude dorp en loop je langs zee naar het kasteel van Tamarit. Torredembarra uit je eigen lijst raad ik af, daar zijn dit jaar campers opengebroken. Met stroom: Area 340 is krap bij de toegang en daar schrapen lage campers, dus neem Calafell of de area in La Selva del Camp."},
+ {t:"Costa de l'Ebre", sub:"L'Ametlla de Mar en L'Ampolla", tip:"Les Tres Cales in L'Ametlla de Mar is de beste gratis plek van dit stuk: ruim, baaien om de hoek, de politie groet vriendelijk. Loop van daaruit een deel van het kustpad. Heb je stroom nodig, dan zijn Finca Isabel (bij een Nederlandse olijfboer) en Finca Ermita, allebei tussen de olijfbomen boven L'Ampolla, plekken om te blijven."},
+ {t:"Tortosa", sub:"Even landinwaarts aan de Ebro", tip:"Tortosa is mooi voor een dag: de kathedraal, het kasteel La Suda en de markthal. De slaapplekken zijn er matig. Wil je er niet slapen, pak de stad dan mee onderweg naar de Delta, dat is 40 minuten verder."},
+ {t:"Ebrodelta", sub:"Rijstvelden, lagunes en zandtongen", tip:"Neem hier de tijd voor de fiets. De plek bij La Casa de Fusta ligt midden in de natuur aan de lagune, maar je hebt er nauwelijks bereik: plan het als offline-dag. Wil je werken, ga dan naar Els Muntells."},
+ {t:"Peñíscola en de Serra d'Irta", sub:"Oude stad op de rots en een ongerepte kust", tip:"Kijk Peñíscola en slaap in Alcossebre. Aan de Camino l'Atall sta je met het strand voor de deur, en het kustpad door de Serra d'Irta begint om de hoek. In Peñíscola zelf staat in je eigen lijst een plek naast een hondenpark: handig voor Jip."},
+ {t:"Costa del Azahar", sub:"Torre la Sal, Benicàssim en Vilafamés", tip:"Torre la Sal (je eigen plek) is rustig met zeezicht. Fiets een dag de Via Verde del Mar. Vilafamés is het mooiste dorp van dit stuk: de camperplaats daar is meteen je plek met stroom."},
+ {t:"Op weg naar Valencia", sub:"Chilches, Segorbe en El Puig", tip:"Een kort stuk met twee keuzes: aan zee in Chilches of El Puig, of een uitstap landinwaarts naar Segorbe voor de waterval Salto de la Novia. El Puig vind ik het fijnst: groot plein aan zee en je fietst zo naar Valencia."},
+ {t:"Valencia en de Albufera", sub:"De stad die je wél leuk vond", tip:"Sta aan het strand van Pinedo en fiets de stad in. De Albufera met het dennenbos van de Devesa ligt er vlak onder. Een betaalde plek met stroom onder €20 is hier lastig; El Saler zit er precies op."},
+ {t:"Cullera en Xeraco", sub:"Kaap, kasteel en een bosvallei", tip:"Slaap in Cullera aan de doodlopende straat bij het centrum en loop naar kasteel en vuurtoren. De vallei van La Murta uit je lijst is prachtig om te wandelen, maar de toegangsweg is smal: ga daar alleen heen als je dat aandurft met 7 meter."},
+ {t:"La Safor", sub:"Gandia, Vilallonga en Oliva", tip:"Het natuurstrand van l'Ahuir in Gandia is je basis. Rij een dag naar Vilallonga voor de kloof van Racó del Duc en slaap daar, dan kun je 's morgens vroeg lopen of fietsen. Oliva heeft de best beoordeelde gratis plek van dit stuk."},
+ {t:"Dénia en de Montgó", sub:"Rotskust en het pad naar de Cova Tallada", tip:"Les Rotes is mijn favoriet: de gemeente heeft er camperplaatsen gemaakt en het kustpad begint om de hoek. Dénia controleert streng: aan de Carrer Boga kreeg iemand na 5 dagen €1500 boete. Blijf nergens langer dan een etmaal op een gewone parking."},
+ {t:"Jávea en de Xaló-vallei", sub:"Eindpunt van deze route", tip:"Staat de plek aan het water bij Montañar vrij, pak hem: je staat letterlijk aan zee en hij is geschikt tot 7 meter. Sluit af bij Bodega 2020 met een proeverij. Wil je daarna nog verder, dan liggen Fonts de l'Algar en Guadalest uit je eigen lijsten vlakbij."}
+];
+
+const V = [
+ {n:"Sant Sadurní d'Anoia",fiets:"Tegenover RV Penedès beginnen routes om te lopen en te fietsen door de wijngaarden (review). Glooiend, niet vlak.",lat:41.4339,lon:1.7850,g:0,dep:"Penedès, Barcelona",w:"Sant Sadurní d'Anoia",opt:1,km:107,min:77,from:"Vidreres",pn:"Met stroom: in de Penedès heb ik niets onder €20 gevonden. Calafell (€20 incl. stroom) ligt ca. 45 km verder aan de kust, de area in La Selva del Camp ca. 75 km.",
+  d:"Het hart van de cava: kelders, wijngaarden en uitzicht op de bergen. Een fijne tussenstop als je de eerste dag niet ver wilt rijden.",doen:"Een cavakelder bezoeken met proeverij en een wandeling door de wijngaarden."},
+ {n:"Altafulla",fiets:"Geen echte fietsstreek: het kustpad naar Tamarit is om te lopen. Fietsen gaat over de boulevard en rustige wegen.",lat:41.1368,lon:1.3883,g:0,dep:"Tarragona",w:"Altafulla",km:58,min:49,from:"Sant Sadurní (rechtstreeks vanaf Vidreres 156 km)",
+  d:"Een ommuurd oud dorp met kasteel boven de kust. Rustiger dan alles tussen Barcelona en Tarragona.",doen:"Langs het strand en het GR-pad naar kasteel Tamarit lopen, ca. 1 uur heen."},
+ {n:"L'Ametlla de Mar",lat:40.9108,lon:0.8282,g:1,dep:"Tarragona",w:"L'Ametlla de Mar",km:66,min:56,from:"Altafulla",
+  d:"Echt vissersdorp met een haven en tientallen kleine baaien langs de kust.",doen:"Het kustpad GR-92 langs de baaien, en lunch aan de haven."},
+ {n:"L'Ampolla",fiets:"Finca Isabel ligt op fietsafstand van dorp en strand. Vanaf L'Ampolla fiets je zo de Delta in, helemaal vlak.",lat:40.8075,lon:0.7026,g:1,dep:"Tarragona",w:"L'Ampolla",km:18,min:23,from:"L'Ametlla de Mar",
+  d:"Klein vissersdorp waar de Delta begint, met een boulevard en strand.",doen:"Het laatste stuk van het kustpad, of de trein naar L'Ametlla en teruglopen."},
+ {n:"Tortosa",fiets:"Vanaf de area aan de Passeig de Ribera loopt een fietspad naar de Via Verda: een oude spoorlijn van bijna 50 km het binnenland in, licht klimmend. De paarse lijn op de kaart.",lat:40.8172,lon:0.5183,g:2,dep:"Baix Ebre, Tarragona",w:"Tortosa",km:24,min:23,from:"L'Ampolla",
+  d:"Oude stad aan de Ebro met een gotische kathedraal en de burcht La Suda.",doen:"De oude stad lopen en een stuk van de Via Verda fietsen, het oude spoor dat hier begint."},
+ {n:"Ebrodelta",fiets:"Het beste fietsgebied van de hele route: helemaal vlak, met bewegwijzerde routes rond de lagunes, langs de rijstvelden en naar de stranden. De paarse lijnen op de kaart beginnen bij je slaapplekken.",lat:40.6592,lon:0.6754,g:3,dep:"Montsià, Tarragona",w:"Delta del Ebro",km:35,min:40,from:"Tortosa",
+  d:"Plat, open en stil: rijstvelden, lagunes, zandtongen en flamingo's. De beste fietsstreek van de route.",doen:"Fietsen rond de lagune L'Encanyissada en over de zandtong El Trabucador."},
+ {n:"Peñíscola",fiets:"Langs de kust loopt een bewegwijzerde fietsroute naar Benicarló, ca. 5 km. Vanaf La Rotonda ben je volgens reviews snel in de oude stad.",lat:40.3661,lon:0.3961,g:4,dep:"Baix Maestrat, Castellón",w:"Peñíscola",km:51,min:53,from:"de Delta",
+  d:"Oude stad op een rots in zee, met het kasteel van paus Papa Luna.",doen:"Rond de stadsmuren lopen met Jip, en lunch op een terras in de oude stad."},
+ {n:"Alcossebre",fiets:"De EuroVelo 8 volgt hier het onverharde kustpad door de Serra d'Irta naar Peñíscola: met een gewone fiets stevig, met een e-bike mooi. Langs de kust naar het zuiden een fietsroute naar Torreblanca.",lat:40.2360,lon:0.2729,g:4,dep:"Baix Maestrat, Castellón",w:"Alcossebre",km:31,min:32,from:"Peñíscola",
+  d:"Rustig badplaatsje aan de zuidrand van de Serra d'Irta, met baaien en een kustpad.",doen:"Het kustpad door de Serra d'Irta, zo ver als je zin hebt."},
+ {n:"Torre la Sal",fiets:"De EuroVelo 8 loopt langs de kust naar Oropesa, waar de Via Verde del Mar begint.",lat:40.1264,lon:0.1611,g:5,dep:"Cabanes, Castellón",w:"Prat de Cabanes-Torreblanca",km:23,min:31,from:"Alcossebre",
+  d:"Stille kust achter de duinen, naast het wetland van Prat de Cabanes.",doen:"Vogels kijken in het wetland en over de loopbruggen naar het strand."},
+ {n:"Benicàssim",fiets:"Fietsen is hier top: de Via Verde del Mar langs de kliffen naar Oropesa, en de boulevard met fietspad naar het zuiden. Reviews van Gurugu: uitstekende fietspaden.",lat:40.0582,lon:0.0847,g:5,dep:"Plana Alta, Castellón",w:"Benicàssim",km:12,min:17,from:"Torre la Sal",
+  d:"Badplaats met een boulevard, en het begin van de Via Verde del Mar langs de kliffen.",doen:"De Via Verde del Mar fietsen of lopen, 5,5 km enkele reis."},
+ {n:"Vilafamés",fiets:"Heuvelachtig. Hier kom je voor het dorp, niet voor een fietsdag.",lat:40.1187,lon:-0.0491,g:5,dep:"Plana Alta, Castellón",w:"Vilafamés",km:40,min:40,from:"Benicàssim",
+  d:"Middeleeuws dorp van rode steen tegen een heuvel, met een kasteel en de Roca Grossa. Officieel een van de mooiste dorpen van Spanje.",doen:"Door de steile straten naar het kasteel klimmen, en kijken naar het uitzicht over de vlakte."},
+ {n:"Chilches",lat:39.7704,lon:-0.1533,g:6,dep:"Plana Baixa, Castellón",w:"Chilches",km:58,min:46,from:"Vilafamés",
+  d:"Rustig dorp aan een lang strand met gekleurde kiezels en oude vissershuizen.",doen:"Over de promenade lopen en naar het strand van Casablanca uit je eigen lijst."},
+ {n:"Segorbe",lat:39.8489,lon:-0.4846,g:6,dep:"Alto Palancia, Castellón",w:"Segorbe",km:36,min:36,from:"Chilches",
+  d:"Oude bisschopsstad landinwaarts, de uitvalsbasis voor de waterval Salto de la Novia.",doen:"De waterval bij Navajas (5 km) en de oude stad met het aquaduct."},
+ {n:"El Puig",fiets:"Een Nederlandse review: vanaf hier op de fiets naar Valencia. De EuroVelo 8 loopt van El Puig naar de stad, de paarse lijn op de kaart.",lat:39.5764,lon:-0.2752,g:6,dep:"Horta Nord, Valencia",w:"El Puig de Santa Maria",km:42,min:38,from:"Segorbe",pn:"Met stroom onder €20: Eco Área El Saler bij Valencia, ca. 30 km (€20). Nomadic Experience vlakbij kost €24 of meer.",
+  d:"Groot plein aan zee, 15 km boven Valencia. Vanaf hier fiets je langs de kust de stad in.",doen:"Op de fiets naar Valencia, of gewoon aan zee zitten."},
+ {n:"Valencia",fiets:"Een echte fietsstad. Vanaf Pinedo fiets je over het fietspad langs de kust en door het Turia-park naar de oude stad, en naar het zuiden over het fietspad door het bos van de Devesa naar El Saler.",lat:39.4188,lon:-0.3348,g:7,dep:"Valencia",w:"Valencia",km:25,min:26,from:"El Puig",
+  d:"De stad die je wél leuk vond. Je staat aan het strand van Pinedo, met de Albufera er vlak onder.",doen:"Fietsen door de Turia-tuinen naar de oude stad, en de Albufera bij zonsondergang."},
+ {n:"Cullera",lat:39.1590,lon:-0.2417,g:8,dep:"Ribera Baixa, Valencia",w:"Cullera",km:35,min:44,from:"Valencia",
+  d:"Stadje onder een heuvel met een kasteel, en een vuurtoren op de kaap.",doen:"Naar het kasteel lopen voor het uitzicht over kust en rijstvelden."},
+ {n:"Xeraco",lat:39.0458,lon:-0.1992,g:8,dep:"Safor, Valencia",w:"Xeraco",km:22,min:25,from:"Cullera",
+  d:"Lang, rustig strand met duinen. Hier zit de betaalde plek met stroom van dit stuk.",doen:"Strandwandelingen, en Gandia ligt op 6 km."},
+ {n:"Gandia",lat:39.0187,lon:-0.1799,g:9,dep:"Safor, Valencia",w:"Gandia",km:6,min:11,from:"Xeraco",
+  d:"Het natuurstrand van l'Ahuir met duinen, en een palmenboulevard van 4 km naar de haven.",doen:"Over de boulevard naar de haven lopen en churros eten."},
+ {n:"Vilallonga",fiets:"De Via Verde del Serpis door de kloof: een oude spoorlijn met tunnels, onverhard en hier en daar stenig (review). Te voet of op de fiets.",lat:38.8907,lon:-0.2114,g:9,dep:"Safor, Valencia",w:"Villalonga",km:18,min:24,from:"Gandia",pn:"Met stroom: Àrea Dunes in Daimús, ca. 20 km.",
+  d:"Dorp aan de voet van de bergen, het begin van de kloof van Racó del Duc.",doen:"De Via Verde del Serpis door de kloof, te voet of op de fiets."},
+ {n:"Oliva",lat:38.9179,lon:-0.0833,g:9,dep:"Safor, Valencia",w:"Oliva",km:17,min:28,from:"Vilallonga",
+  d:"Oude stad tegen de heuvel en lange rustige stranden.",doen:"De oude stad en het strand, 100 meter van de plek."},
+ {n:"Dénia",fiets:"Langs de weg van Les Rotes loopt een pad naar de haven en het centrum, ca. 3 km, vlak.",lat:38.8245,lon:0.1508,g:10,dep:"Marina Alta, Alicante",w:"Dénia",km:29,min:37,from:"Oliva",
+  d:"Rotskust onder de Montgó met helder water. Je staat bij Les Rotes, 3 km van het centrum.",doen:"Het pad naar de Cova Tallada en de oude vissersbuurt Baix la Mar."},
+ {n:"Jávea",fiets:"Vanaf de Calle Niza fiets je in 5 minuten naar het strand van Arenal (review). Naar de kapen is het steil en bochtig.",lat:38.7657,lon:0.2020,g:11,dep:"Marina Alta, Alicante",w:"Jávea",km:15,min:22,from:"Les Rotes",
+  d:"Eindpunt: een oude stad van zandsteen, een haven en de baai van Arenal.",doen:"De oude stad, de grotten aan Cap de la Nau en een proeverij bij Bodega 2020."},
+ {n:"Xaló",fiets:"Rustige wegen door de wijnvallei, glooiend.",lat:38.7424,lon:-0.0150,g:11,dep:"Marina Alta, Alicante",w:"Jalón",opt:1,km:25,min:30,from:"Jávea (ca.)",
+  d:"Wijndorp in de vallei achter Jávea, met wijngaarden en wandelroutes. Hier zit de betaalde plek met stroom voor Dénia en Jávea.",doen:"Wandelen en fietsen door de wijngaarden van de vallei."}
+];
+
+// t: n natuur, k historie & dorpen, c kust & strand, w eten & wijn, f fietsen
+const P = [
+ {n:"Cavakelders van Sant Sadurní",lat:41.4270,lon:1.7870,g:0,t:"w",dog:null,w:"Cava",d:"Rond Sant Sadurní liggen veel cavahuizen, van groot tot familiebedrijf, en veel doen proeverijen. Reserveer vooraf, in december wisselen de tijden."},
+ {n:"Vila Closa van Altafulla",lat:41.1422,lon:1.3773,g:0,t:"k",dog:1,top:1,w:"Altafulla",d:"Het oude ommuurde dorp met kasteel en smalle straten, ca. 1 km lopen vanaf Els Munts."},
+ {n:"Kasteel Tamarit en het GR-92",lat:41.1306,lon:1.3631,g:0,t:"c",dog:1,top:1,w:"Castell de Tamarit",d:"Middeleeuws kasteel op een rots aan zee. Vanaf Els Munts ca. 1 uur heen over het strand en het kustpad, 5 à 8 km heen en terug."},
+ {n:"Arc de Berà",lat:41.1730,lon:1.4686,g:0,t:"k",dog:1,w:"Arco de Bará",d:"Romeinse triomfboog van 2000 jaar oud, direct aan de N-340 bij Roda de Berà. Je rijdt er zo langs."},
+ {n:"Pont del Diable",lat:41.1450,lon:1.2430,g:0,t:"k",dog:1,w:"Acueducto de Les Ferreres",d:"Romeins aquaduct van twee verdiepingen in een park met wandelpaden. Vlakke dagparkeerplaatsen achter het overdekte zwembad aan de Camí Pont del Diable. Dit is een stop op een rijdag, niet om te slapen."},
+ {n:"Kustpad GR-92 door de baaien",lat:40.8700,lon:0.7900,g:1,t:"c",dog:1,top:1,w:"GR 92",d:"Tussen L'Ametlla de Mar en L'Ampolla is het 16 km langs baaien, rotsen en kleine stranden. Te lang? Loop vanuit Les Tres Cales een stuk naar het zuiden en keer om. Tip uit reviews: trein naar het ene dorp, teruglopen naar het andere."},
+ {n:"Haven van L'Ametlla de Mar",lat:40.8840,lon:0.8020,g:1,t:"w",dog:1,w:"L'Ametlla de Mar",d:"Vissershaven bekend om tonijn. Lunch op een terras aan het water."},
+ {n:"Castell de Sant Jordi d'Alfama",lat:40.9135,lon:0.8330,g:1,t:"k",dog:1,w:"Castell de Sant Jordi d'Alfama",d:"Oud kustkasteel aan de baaien bij Les Tres Cales, met grote parkeerplaatsen en uitzicht."},
+ {n:"Kathedraal en La Suda, Tortosa",lat:40.8113,lon:0.5232,g:2,t:"k",dog:null,w:"Catedral de Tortosa",d:"Gotische kathedraal in de oude stad en de burcht La Suda erboven, met uitzicht over de Ebro."},
+ {n:"Via Verda vanaf Tortosa",lat:40.8030,lon:0.5143,g:2,t:"f",dog:1,w:"Vía Verde de la Terra Alta",d:"Oude spoorlijn die nu fiets- en wandelpad is. Het fietspad naast de camperplaats aan de Passeig de Ribera sluit erop aan."},
+ {n:"Lagune L'Encanyissada",lat:40.6450,lon:0.6800,g:3,t:"f",dog:1,top:1,w:"L'Encanyissada",d:"Fietsronde vanaf de plek rond de lagune, met uitkijktorens en flamingo's. Helemaal vlak."},
+ {n:"El Trabucador",lat:40.6220,lon:0.7450,g:3,t:"c",dog:1,w:"Barra del Trabucador",d:"Smalle zandtong tussen zee en baai, kilometers lang. Op de fiets bijzonder."},
+ {n:"Riumar en de riviermonding",lat:40.7220,lon:0.8730,g:3,t:"n",dog:1,w:"Riumar",d:"Waar de Ebro de zee in stroomt, met duinen en een lang strand."},
+ {n:"Les Cases d'Alcanar",lat:40.5545,lon:0.5290,g:3,t:"w",dog:1,w:"Les Cases d'Alcanar",d:"Klein vissersdorp met visrestaurants aan het water, direct aan de N-340 op weg naar het zuiden."},
+ {n:"Kasteel van Papa Luna",lat:40.3590,lon:0.4065,g:4,t:"k",dog:null,top:1,w:"Castillo de Peñíscola",d:"Tempeliersburcht op de rots, later het paleis van paus Benedictus XIII. Van buitenaf en vanaf de muren al prachtig."},
+ {n:"Kustpad Serra d'Irta",lat:40.2440,lon:0.2900,g:4,t:"c",dog:1,top:1,w:"Sierra de Irta",d:"Van Cala Blanca in Alcossebre langs baaien naar Cala Argilaga, ca. 9 km enkele reis. Keer om wanneer je wilt. Let op: in je lijst Road Fam Map staat een plek in het natuurpark bij Peñíscola, maar daar staat een bord max 2,5 ton. Die heb ik er daarom niet als slaapplek in gezet."},
+ {n:"Torre Ebrí",lat:40.2800,lon:0.3350,g:4,t:"n",dog:1,w:"Torre Ebrí",d:"Wachttoren op de kam van de Serra d'Irta met uitzicht tot het kasteel van Peñíscola."},
+ {n:"Cala de la Sunyera",lat:40.5172,lon:0.5123,g:4,t:"c",dog:1,own:"Highlights reizigersgroep",w:"Vinaròs",d:"Baai bij Vinaròs uit je eigen lijst. Ligt op de route tussen de Delta en Peñíscola."},
+ {n:"Via Verde del Mar",lat:40.0700,lon:0.0880,g:5,t:"f",dog:1,top:1,w:"Vía Verde del Mar",d:"Oude spoorlijn langs de kliffen tussen Benicàssim en Oropesa: 5,5 km enkele reis, met tunnels, een wachttoren en uitzichtpunten. Start bij de grindparking aan de voet van de Via Verde."},
+ {n:"Prat de Cabanes",lat:40.1500,lon:0.1900,g:5,t:"n",dog:1,w:"Prat de Cabanes-Torreblanca",d:"Wetland achter de duinen bij Torre la Sal, mooi voor een vogelwandeling."},
+ {n:"Dorp Vilafamés en de Roca Grossa",lat:40.1154,lon:-0.0499,g:5,t:"k",dog:1,top:1,own:"Wil ik heen",w:"Vilafamés",d:"Rode steen, steile straten, een kasteel bovenop. De Roca Grossa is een enorme rots die er al eeuwen balanceert. Staat in je lijst Wil ik heen."},
+ {n:"Salto de la Novia",lat:39.8743,lon:-0.5001,g:6,t:"n",dog:1,top:1,own:"Waterval",w:"Salto de la Novia",d:"Waterval in de rivier Palancia bij Navajas, met wandelpaden. Toegang kost een paar euro. Staat in je lijst Waterval. De parking bij de waterval is te klein voor 7 m: slaap in Segorbe (5 km) en ga met de fiets of rij er overdag heen."},
+ {n:"Oude stad van Segorbe",lat:39.8517,lon:-0.4890,g:6,t:"k",dog:1,w:"Segorbe",d:"Kathedraal, middeleeuwse torens en een oud aquaduct."},
+ {n:"Kasteel van Sagunt",lat:39.6765,lon:-0.2770,g:6,t:"k",dog:null,w:"Castillo de Sagunto",d:"Kasteel over een hele heuvelrug en een Romeins theater. Ligt tussen Chilches en El Puig."},
+ {n:"Turia-tuinen en de oude stad",lat:39.4755,lon:-0.3753,g:7,t:"f",dog:1,top:1,w:"Jardín del Turia",d:"Vanaf Pinedo ca. 7 km langs de kust, dan door de oude rivierbedding (nu één lang park) naar de oude stad. In je lijst Highlights reizigersgroep staan ook gratis musea in Valencia."},
+ {n:"Ciutat de les Arts i les Ciències",lat:39.4549,lon:-0.3505,g:7,t:"k",dog:1,own:"Highlights reizigersgroep",w:"Ciudad de las Artes y las Ciencias",d:"De witte gebouwen aan het eind van de Turia. Van buitenaf al de moeite."},
+ {n:"Devesa del Saler",lat:39.3500,lon:-0.3150,g:7,t:"n",dog:1,top:1,w:"Dehesa del Saler",d:"Dennenbos tussen de lagune en de duinen, met wandelpaden. Bos aan zee."},
+ {n:"El Palmar en de Albufera",lat:39.3150,lon:-0.3060,g:7,t:"w",dog:null,w:"El Palmar (Valencia)",d:"Vissersdorp in de lagune. Boottocht bij zonsondergang en de plek voor echte paella."},
+ {n:"Kasteel van Cullera",lat:39.1656,lon:-0.2492,g:8,t:"k",dog:1,w:"Castillo de Cullera",d:"Uitzichtpunt over kust en rijstvelden. Loop omhoog vanaf de plek: de parkeervakken bij het kasteel zijn te kort voor 7 m."},
+ {n:"Vuurtoren van Cullera",lat:39.1872,lon:-0.2284,g:8,t:"c",dog:1,w:"Faro de Cullera",d:"Vuurtoren op de kaap met wijds uitzicht. Fiets of loop, de weg erheen is smal."},
+ {n:"Vallei van La Murta",lat:39.1330,lon:-0.3732,g:8,t:"n",dog:1,top:1,own:"Road Fam Map",w:"Monasterio de la Murta",d:"Bosvallei met de ruïne van een klooster en mooie wandelingen. De plek staat in je lijst Road Fam Map. Let op: volgens een review van februari is de toegangsweg kilometers lang erg smal, en er is geen bereik."},
+ {n:"Racó del Duc",lat:38.8760,lon:-0.2260,g:9,t:"f",dog:1,top:1,w:"Vía Verde del Serpis",d:"Oude spoorlijn door een rivierkloof met tunnels. De korte versie tot de Fàbrica de l'Infern is minder dan 11 km heen en terug, te voet of op de fiets. Je fietst er zo heen vanaf de plek in Vilallonga."},
+ {n:"Palau Ducal, Gandia",lat:38.9690,lon:-0.1820,g:9,t:"k",dog:null,w:"Palacio Ducal de Gandía",d:"Paleis van de familie Borja in het centrum van Gandia."},
+ {n:"Oude stad van Oliva",lat:38.9200,lon:-0.1200,g:9,t:"k",dog:1,w:"Oliva",d:"Straten tegen de heuvel, rustiger dan Gandia."},
+ {n:"Kasteel van Xàtiva",lat:38.9829,lon:-0.5179,g:9,t:"k",dog:null,own:"Valencia regio",w:"Castillo de Játiva",d:"Groot kasteel over de bergkam, uit je lijsten Valencia regio en Wil ik heen. Ca. 40 km landinwaarts. De parking bij het kasteel is volgens reviews alleen via heel smalle straten bereikbaar: parkeer beneden aan de rand van de stad en loop of neem de toeristentrein."},
+ {n:"Cova Tallada en Torre del Gerro",lat:38.8076,lon:0.1895,g:10,t:"c",dog:null,top:1,w:"Cova Tallada",d:"Rondwandeling van ca. 4,2 km vanaf Les Rotes naar een grot in de rotskust en een oude wachttoren. De afdaling naar de grot is steil en glad. Reserveren is alleen in de zomer verplicht."},
+ {n:"Kasteel en Baix la Mar, Dénia",lat:38.8410,lon:0.1070,g:10,t:"k",dog:1,w:"Castillo de Denia",d:"Kasteel boven de haven en de oude vissersbuurt met gekleurde huizen. Met de fiets of bus L4 vanaf Les Rotes."},
+ {n:"Oude stad van Xàbia",lat:38.7890,lon:0.1650,g:11,t:"k",dog:1,w:"Jávea",d:"Straten van tosca-zandsteen en de vestingkerk Sant Bartomeu."},
+ {n:"Grotten bij Cap de la Nau",lat:38.7330,lon:0.2307,g:11,t:"c",dog:1,own:"Highlights reizigersgroep",w:"Cabo de la Nao",d:"Cova dels Òrguens, Cala en Caló en het uitzichtpunt La Barraca, allemaal uit je lijst. De wegen erheen zijn smal en bochtig: ga met de fiets."},
+ {n:"Bodega 2020",lat:38.7530,lon:0.1372,g:11,t:"w",dog:1,top:1,w:"Jávea",d:"Biologische wijnen en tapas bij Audrey. Staat in je lijst nog op het oude adres in Algemesí; de bodega zit nu in Jávea. Je kunt er ook slapen, zie hieronder."},
+ {n:"Fonts de l'Algar",lat:38.6605,lon:-0.0949,g:11,t:"n",dog:null,own:"Valencia regio",w:"Fuentes del Algar",d:"Watervallen en poelen bij Callosa d'en Sarrià, uit je lijsten. Ligt ca. 35 km voorbij Jávea, dus voor als je verder gaat."}
+];
+
+// f: gratis, e: met stroom, own: lijst uit haar Google Maps
+const SL = [
+ {n:"RV Penedès, Sant Sadurní",lat:41.4339,lon:1.7850,g:0,pid:128770,bike:"Tegenover de area beginnen routes om te lopen en te fietsen door de wijngaarden (review). Glooiend.",score:4.25,rev:326,price:"Gratis, water en afvoer gratis",f:1,own:"Dutchvanlife Slaapplekken",len:"6 officiële vakken; een camper van 7 m kreeg om 19 uur nog een plek",net:"Dorp, waarschijnlijk goed",d:"Je eigen notitie: gezellige gratis plek, vlakbij dorp, supermarkt en wijngaarden, uitzicht op bergen. Klopt nog: nov 2026 schoon en alles werkt, wel vrij vol, ook buiten het seizoen.",v:["Sant Sadurní d'Anoia"]},
+ {n:"Els Munts, Altafulla",lat:41.1368,lon:1.3883,g:0,pid:317398,score:3.62,rev:21,price:"Gratis",f:1,top:1,len:"Straatparkeerplek, 6 plaatsen, geen problemen gemeld",net:"Woonwijk, waarschijnlijk goed",d:"Rustig 's nachts, uitzicht op dorp en zee, strand op minder dan 1 km. Het GR-pad naar kasteel Tamarit begint vlakbij.",v:["Altafulla"]},
+ {n:"Carrer Villa Romana, Altafulla",lat:41.1359,lon:1.3896,g:0,pid:323715,score:3.72,rev:29,price:"Gratis",f:1,len:"Ruim, voor alle formaten",net:"Woonwijk, waarschijnlijk goed",d:"100 m van Els Munts, met drinkwater, banken en panoramisch uitzicht. Op zaterdagavond komen er jongeren samen (okt 2026 nog gemeld).",v:["Altafulla"]},
+ {n:"Torredembarra, Aparcament Charlas",lat:41.1471,lon:1.4169,g:0,pid:33507,score:3.76,rev:62,price:"Gratis",f:1,warn:1,own:"Camping / camperplaatsen Spanje",len:"8 plaatsen, ruim",net:"Stad, goed",d:"Staat in je eigen lijsten, maar ik raad hem af: in sept 2026 werd 's middags een camper opengebroken en in aug 2026 gooide iemand om 4.30 uur stenen op een dak. Spoor ernaast.",v:["Altafulla"]},
+ {n:"Area 340, Roda de Berà",lat:41.1651,lon:1.4582,g:0,pid:31904,bike:"Goede fietsmogelijkheden langs de kust.",score:3.93,rev:837,price:"€14 + €4 stroom in de winter, ca. €18",e:1,warn:1,len:"84 plaatsen; de toegang is krap en campers met een lage achterkant schrapen er",net:"Goed",d:"Direct aan het strand, stroom op elke plek, goed sanitair, goede fietsmogelijkheden. Maar: jij hoorde dat campers met een lage achterkant bij de toegang schrapen, en ook Park4Night noemt het aanrijden krap. Voor jouw camper dus geen goed idee. Neem de area in La Selva del Camp of de Finca Isabel.",v:["Altafulla"]},
+ {n:"Calafell, haven",lat:41.1893,lon:1.6080,g:0,pid:114293,score:3.67,rev:285,price:"€20 inclusief stroom",e:1,len:"Een camper van 9 m paste",net:"Goed",d:"Tafel en stoelen buiten mag hier (okt 2026). Strand op 3 minuten. Bel het nummer op het hek; neem niet de slagboom van de gewone parking, iemand betaalde daar €33,60.",v:["Altafulla"]},
+ {n:"Area Autocaravanes, La Selva del Camp",lat:41.2098,lon:1.1397,g:0,pid:72231,score:4.35,rev:314,price:"€10,50 per nacht, stroom en service €4",e:1,bike:"Review: met de e-bike naar Reus, en een mooi pad, de Camí d'en Grau. De area noemt zichzelf ideaal voor fiets- en wandelroutes.",len:"10 plaatsen; reviews: makkelijk aanrijden, ruime plaatsen",net:"Dorp, goed",d:"Gemeentelijke area in een dorp 15 km landinwaarts van Tarragona, toegang via een app. 4,35 uit 314 reviews: schoon, alles werkt, prijs prima. Wat verkeer van de weg ernaast tot laat in de avond. Ca. 30 km van Altafulla: je reserve met stroom voor dit stuk.",v:["Altafulla"]},
+ {n:"Finca Isabel, L'Ampolla",lat:40.8394,lon:0.6809,g:1,pid:474507,score:4.99,rev:69,price:"Vanaf €16, stroom mogelijk. Reserveren via WhatsApp",e:1,top:1,bike:"NL review: op perfecte fietsafstand van het dorp en het strand.",len:"7 plaatsen tussen de olijfbomen",net:"Wifi",d:"Bij Eline, een Nederlandse olijfboer, met uitzicht over de Ebrodelta. 4,99 uit 69 reviews: rust, heel schoon sanitair, warme ontvangst, mensen blijven langer dan gepland. Vraag bij het reserveren wat het met stroom kost.",v:["L'Ampolla","L'Ametlla de Mar"]},
+ {n:"Les Tres Cales, L'Ametlla de Mar",lat:40.9108,lon:0.8282,g:1,pid:586465,score:4.18,rev:50,price:"Gratis",f:1,top:1,own:"Camping / camperplaatsen Spanje",len:"Ruim, plekken voor alle formaten verspreid over de wijk",net:"Woonwijk, waarschijnlijk goed",d:"Klopt nog goed: nov 2026 meerdere nachten zonder zorgen, politie reed langs en groette, baai om te zwemmen vlakbij. Een klacht dat campers tafels en stoelen op stoep en fietspad zetten: doe dat hier dus niet. De officiële camperparking aan de Carrer de la Goleta scoort maar 2,75 door lawaai van de snelweg.",v:["L'Ametlla de Mar"]},
+ {n:"Castell de Sant Jordi, L'Ametlla",lat:40.9130,lon:0.8318,g:1,pid:164578,score:3.71,rev:29,price:"Gratis",f:1,own:"Dutchvanlife Slaapplekken",len:"3 plaatsen langs de weg, bij het kasteel meer grote parkings",net:"Waarschijnlijk goed",d:"Je eigen notitie: in de winter mag hier overnacht worden. Reviews: super uitzicht, drie baaien om te zwemmen, politie gedoogt het zolang je niet kampeert. Wie iets buiten zet, krijgt een boete.",v:["L'Ametlla de Mar"]},
+ {n:"Camper Parking El Perelló (Platja de l'Àliga)",lat:40.8282,lon:0.7400,g:1,pid:249747,score:4.28,rev:363,price:"Gratis, max 24 uur",f:1,own:"Camping / camperplaatsen Spanje",len:"30 plaatsen",net:"Waarschijnlijk goed",d:"Staat in je lijst en klopt: nov 2026 rustig, korte wandeling naar een klein mooi strand, hondenstrand vlakbij. Tafels en stoelen zijn hier verboden en er wordt beboet. Overdag veel vliegen.",v:["L'Ampolla","L'Ametlla de Mar"]},
+ {n:"L'Ampolla, Carrer Sagunto",lat:40.8075,lon:0.7026,g:1,pid:23377,score:3.78,rev:102,price:"Gratis",f:1,len:"Ruim en vlak, 15 plaatsen",net:"Dorp, waarschijnlijk goed",d:"Okt 2026 (NL): prima ondergrond, veel plek, strand en boulevard op een paar minuten. Spoor ernaast, maar 's nachts geen treinen.",v:["L'Ampolla"]},
+ {n:"Camperplaats El Perelló (dorp)",lat:40.8769,lon:0.7099,g:1,pid:563717,score:4.2,rev:149,price:"Gratis, water €2",f:1,own:"Camping / camperplaatsen Spanje",len:"16 vakken, licht hellend",net:"Dorp, waarschijnlijk goed",d:"Uit je eigen lijst. Nieuwe area in het honingdorp El Perelló, 6 km landinwaarts. Nov 2026: 's nachts rustig, maar de coöperatie aan de overkant maakt overdag lawaai en op een zaterdag was er tot laat muziek.",v:["L'Ampolla"]},
+ {n:"Finca Ermita (olijfgaard)",lat:40.8387,lon:0.6871,g:1,pid:392922,score:4.93,rev:311,price:"€17 + €3 stroom = €20",e:1,top:1,len:"10 plaatsen",net:"Waarschijnlijk goed",d:"Eeuwenoude olijfbomen en uitzicht over de Delta, eigen olijfolie. Ca. 25 km van L'Ametlla de Mar. Bellen of WhatsApp vooraf. Nov 2026: sanitair in renovatie, kraanwater niet drinken. Ook de reserve voor Tortosa en de Delta.",v:["L'Ampolla","L'Ametlla de Mar","Tortosa","Ebrodelta"]},
+ {n:"Tortosa, Rambla de Pompeu Fabra",lat:40.8172,lon:0.5183,g:2,pid:110118,score:3.5,rev:6,price:"Gratis",f:1,len:"20 plaatsen; één oude review (2023) noemt het te smal",net:"Stad, goed",d:"Vlak, park met drinkwater ernaast, 15 minuten lopen langs de rivier naar de oude stad. De fabriek ernaast maakt 's avonds en 's morgens lawaai, 's nachts niet.",v:["Tortosa"]},
+ {n:"Tortosa, area Passeig de Ribera",lat:40.8030,lon:0.5143,g:2,pid:640522,bike:"Het fietspad naast de plek sluit aan op de Via Verda, de oude spoorlijn het binnenland in (review).",score:3.42,rev:45,price:"Gratis, met service",f:1,warn:1,len:"30 plaatsen, vlak",net:"Stad, goed",d:"Water en afvoer gratis, aan het fietspad naar de Via Verda. Maar: hij ligt onder een snelwegbrug en vier reviews van november 2026 noemen het lawaai ondraaglijk. Alleen voor service, niet om te slapen.",v:["Tortosa"]},
+ {n:"Camper Area Amposta, La Casa de Fusta",lat:40.6592,lon:0.6754,g:3,pid:13620,bike:"Je staat aan de bewegwijzerde fietsroutes rond de lagunes, helemaal vlak. Review: superbe balade à vélo.",score:4.15,rev:1022,price:"Gratis, service €3 à 5",f:1,top:1,len:"50 plaatsen, ook voor aanhangers",net:"Nauwelijks tot geen 4G: offline-dag",d:"Natuurreservaat aan de lagune: rustige nachten, flamingo's, zonsondergang. Restaurant en service waren tot ca. 26 nov dicht. Muggen en vliegen bij schemer.",v:["Ebrodelta"]},
+ {n:"Els Muntells",lat:40.6690,lon:0.7590,g:3,pid:566389,bike:"Aan het fietspad naar de stranden (review) en aan fietsroute 11 door de Delta.",score:4.16,rev:96,price:"Gratis, water gratis",f:1,len:"Ruim, grind",net:"Dorp, waarschijnlijk goed",d:"Banken, tafels en een barbecueplek. 5 minuten naar het strand en aan het fietspad. Nov 2026 (NL): blijft een aanrader. 's Nachts veel licht.",v:["Ebrodelta"]},
+ {n:"Riumar Camper Area",lat:40.7296,lon:0.8285,g:3,pid:700824,bike:"Reviews: ideaal om de rijstvelden en de Delta op de fiets te verkennen, en langs de Ebro te fietsen.",score:4.45,rev:47,price:"€17,50 + €3 stroom + toeristenbelasting, ca. €22",e:1,len:"69 ruime plaatsen",net:"Wifi aanwezig",d:"Net boven je grens. Nov 2026 alleen lovende reviews: schoon, 4 minuten naar het strand, ideaal om de rijstvelden in te fietsen. Inchecken via de app TripStop. Onder €20 met stroom: Finca Ermita (26 km).",v:["Ebrodelta"]},
+ {n:"Peñíscola, Carrer del Puntarró",lat:40.3661,lon:0.3961,g:4,pid:655754,score:4.02,rev:50,price:"Gratis",f:1,len:"Onverharde parking, ruim genoeg voor meerdere campers",net:"Stad, goed",d:"Naast area La Brisa, dicht bij de oude stad. Nov 2026: rustig en veilig, alleen parkeren, geen kampeergedrag. Bij regen modder en plassen.",v:["Peñíscola"]},
+ {n:"Peñíscola, bij het hondenpark",lat:40.3707,lon:0.4017,g:4,f:1,own:"Dutchvanlife Slaapplekken",len:"Grind, niet op Park4Night als aparte plek",net:"Stad, goed",d:"Je eigen notitie: grind, gratis, geen voorzieningen, een klein omheind hondenpark met behendigheidstoestellen ernaast en 's nachts mooi uitzicht. Fijn voor Jip. Niet apart beoordeeld; de plek hierboven ligt 500 m verderop.",v:["Peñíscola"]},
+ {n:"Área Camper La Rotonda, Peñíscola",lat:40.3940,lon:0.4086,g:4,pid:388821,bike:"Reviews: met de fiets ben je snel in de oude stad. Langs de kust loopt een fietsroute naar Benicarló.",score:4.22,rev:248,price:"€13,50 + €4,50 stroom = €18",e:1,len:"27 plaatsen, servicepunt lastig voor grote campers",net:"Goed",d:"250 m van het strand, 4 km van de oude stad (fietsen). Nov 2026: comfortabel en ruim, vriendelijke broers, warme douches. Vermijd de plaatsen vlak bij de rotonde.",v:["Peñíscola"]},
+ {n:"Alcossebre, Camino l'Atall (14)",lat:40.2360,lon:0.2729,g:4,pid:474005,score:4.21,rev:14,price:"Gratis",f:1,top:1,len:"3 plaatsen langs de weg, binnen de vakken",net:"Zeer goed (review)",d:"Strand recht voor je, buiten het seizoen bijna privé. Bars op 15 minuten lopen. Dennen met processierupsen: let op met Jip.",v:["Alcossebre"]},
+ {n:"Alcossebre, Camino l'Atall (2)",lat:40.2368,lon:0.2746,g:4,pid:493338,score:4.36,rev:11,price:"Gratis",f:1,len:"Langs de weg tussen twee baaien",net:"Waarschijnlijk goed",d:"Aan de promenade, buiten het seizoen heel rustig. Douches en toiletten op het strand, politie reed langs zonder te stoppen.",v:["Alcossebre"]},
+ {n:"Camí de l'Atall, 2 km zuidelijker",lat:40.2152,lon:0.2664,g:4,f:1,own:"Road Fam Map",len:"Onbekend",net:"Onbekend",d:"Uit je lijst Road Fam Map: plek direct aan zee met werkende stranddouche, iemand stond er meerdere nachten in augustus. Niet op Park4Night gevonden, dus niet nagecheckt.",v:["Alcossebre"]},
+ {n:"Rotsstrand ten zuiden van Alcossebre",lat:40.2033,lon:0.2526,g:4,f:1,own:"Road Fam Map",len:"Natuurplek, veel ruimte",net:"Onbekend",d:"Uit je lijst Road Fam Map: natuurplek aan een rotsstrand, veel campers maar ver uit elkaar. Niet op Park4Night gevonden, dus niet nagecheckt. Kijk ter plekke naar borden.",v:["Alcossebre"]},
+ {n:"Las Moreras, Alcossebre",lat:40.2454,lon:0.2718,g:4,pid:230489,score:4.01,rev:390,price:"€14 + €3 stroom = €17",e:1,len:"Geen lengtebeperking",net:"Goed",d:"10 A stroom, 800 m naar het strand. Sanitair matig, met eigen douche en toilet maakt dat niet uit.",v:["Alcossebre"]},
+ {n:"Torre la Sal, Platja de la Sal",lat:40.1264,lon:0.1611,g:5,pid:421763,score:4.16,rev:25,price:"Gratis",f:1,top:1,own:"Dutchvanlife Slaapplekken",len:"5 plaatsen; 100 m verder een parking met 15 (Park4Night 117113)",net:"Goed internet (review)",d:"Je eigen notitie: zee deels zien, rustig, wandelaars over de vlonder. Klopt: apr 2026 (NL) twee nachten in alle rust, park voor de hond, goed internet. 's Avonds muggen.",v:["Torre la Sal"]},
+ {n:"Benicàssim, voet van de Via Verde",lat:40.0582,lon:0.0847,g:5,pid:390035,bike:"Je staat aan het begin van de Via Verde del Mar, de oude spoorlijn langs de kliffen naar Oropesa.",score:4.11,rev:46,price:"Gratis",f:1,len:"50 plaatsen, grind",net:"Goed",d:"Ruime grindparking aan het begin van de Via Verde del Mar, strand vlakbij. Nov 2026 rustige nachten. Eén melding (nov 2026) van een opengemaakt raam terwijl ze op het strand waren: laat niets zichtbaar liggen.",v:["Benicàssim"]},
+ {n:"Camperplana Gurugu, Castelló",lat:39.9988,lon:0.0287,g:5,pid:663294,bike:"Review: uitstekende fietspaden, een mooie boulevard en de Via Verde del Mar vlakbij.",score:4.3,rev:117,price:"€10 + €5 stroom = €15",e:1,len:"Plaatsen wat kort",net:"Wifi",d:"10 m van het strand, aan fietspad en Via Verde. Max 2 nachten, boeken via een app. De weg ernaast kan luid zijn.",v:["Benicàssim","Torre la Sal"]},
+ {n:"Camper Área Vilafamés",lat:40.1187,lon:-0.0491,g:5,pid:409577,score:4.75,rev:227,price:"€13 + €5 stroom = €18",e:1,top:1,own:"Camping / camperplaatsen Spanje",len:"Grote, vlakke plaatsen",net:"Dorp, goed",d:"Nov 2026 (NL): fantastisch fijne plek, schoon, heerlijke douches, bij een prachtig dorp. Bellen voor toegang. Zomer dicht.",v:["Vilafamés"]},
+ {n:"Chilches, aan het strand",lat:39.7704,lon:-0.1533,g:6,pid:270935,score:4.05,rev:42,price:"Gratis",f:1,len:"35 plaatsen",net:"Goed",d:"Lang strand met gekleurde kiezels recht tegenover. Openbaar toilet. Juni 2026: de politie stuurde iemand naar de camperplaatsen van de gemeente verderop (Park4Night 302662, 4 plaatsen, 3,47).",v:["Chilches"]},
+ {n:"Strand van Casablanca, Almenara",lat:39.7461,lon:-0.1732,g:6,f:1,own:"Road Fam Map",len:"Kuilen op de laatste meters",net:"Waarschijnlijk goed",d:"In je lijsten Road Fam Map en Camping / camperplaatsen Spanje: super plek direct aan het strand, veel kuilen op de laatste paar meters maar te doen. Op Park4Night niet als aparte plek gevonden.",v:["Chilches"]},
+ {n:"Segorbe, Calle Sir Alexander Fleming",lat:39.8489,lon:-0.4846,g:6,pid:72890,score:4.17,rev:12,price:"Gratis",f:1,len:"Vlakke straat",net:"Stad, goed",d:"Rustig en vlak, met fontein, vlak bij het station en een camperarea. Basis voor Salto de la Novia (5 km).",v:["Segorbe"]},
+ {n:"El Puig, Passeig Marítim",lat:39.5764,lon:-0.2752,g:6,pid:166172,bike:"NL review: vanaf hier op de fiets naar Valencia.",score:4.25,rev:118,price:"Gratis",f:1,top:1,own:"Camping / camperplaatsen Spanje",len:"20 plaatsen, geen hoogtebeperking",net:"Goed",d:"Uit je eigen lijst en klopt: nov 2026 (NL) heerlijke plek direct aan zee, op de fiets naar Valencia. Nu door een grote plas plek voor max ca. 10 campers.",v:["El Puig"]},
+ {n:"Valencia, strandparking Pinedo",lat:39.4188,lon:-0.3348,g:7,pid:408636,bike:"Alleen het fietspad ligt tussen jou en het strand (review). Daarover fiets je naar de stad en naar El Saler.",score:4.14,rev:100,price:"Gratis",f:1,top:1,len:"10 plaatsen, ook touringcars",net:"Goed",d:"Alleen het fietspad tussen jou en het strand, banken, bus naar het centrum. Nov 2026: 2 à 3 nachten zonder problemen. Niet op het grasvak in het midden (boete). Veel katten: let op met Jip.",v:["Valencia"]},
+ {n:"Alcampo Alboraia",lat:39.5049,lon:-0.3240,g:7,pid:505396,score:3.84,rev:83,price:"Gratis",f:1,own:"Camping / camperplaatsen Spanje",len:"Aangewezen camperplaatsen",net:"Goed",d:"Uit je lijst: gratis camperplaatsen op de parking van de Alcampo in Alboraia. Handig voor boodschappen, niet mooi.",v:["Valencia"]},
+ {n:"Eco Área El Saler",lat:39.3867,lon:-0.3319,g:7,pid:480020,score:4.1,rev:387,price:"€20 met stroom, zonder €15",e:1,own:"Camping / camperplaatsen Spanje",len:"Tot 12 m",net:"Goed",d:"Staat in je lijst als Parc camping-cars. In de Albufera, bus 24/25 naar Valencia, 10 min naar het strand. Stroom van zonnepanelen, max 4 A per stopcontact.",v:["Valencia"]},
+ {n:"Cullera, Avinguda d'Enrique Chulio",lat:39.1590,lon:-0.2417,g:8,pid:730979,score:4.25,rev:4,price:"Gratis",f:1,own:"Road Fam Map",len:"Doodlopende straat",net:"Stad, goed",d:"Uit je lijst en klopt: nov 2026 heel rustig, dicht bij stad en strand, de gemeente gedoogt er elk jaar veel campers. De grote parking aan de overkant is dicht (nov 2026). Het terrein aan de Plaça 22 (2,83) raad ik af: vol vaste bewoners en modder bij regen.",v:["Cullera"]},
+ {n:"La Murta, bij het klooster",lat:39.1330,lon:-0.3732,g:8,pid:86546,score:3.65,rev:20,price:"Gratis",f:1,warn:1,own:"Road Fam Map",len:"Ruim, maar de toegangsweg is kilometers lang erg smal",net:"Geen 3G/4G/5G",d:"Uit je lijst Road Fam Map. Prachtige plek, 's nachts heel rustig, direct bij de wandelingen. Alleen doen als je die smalle weg met 7 m aandurft.",v:["Cullera"]},
+ {n:"Xeraco Campers",lat:39.0458,lon:-0.1992,g:8,pid:110890,score:4.51,rev:833,price:"ca. €15 + €4 stroom (okt 2026)",e:1,own:"Camping / camperplaatsen Spanje",len:"Ruim, onder palmen",net:"Wifi",d:"Uit je lijst. 500 m van zee, bar met zwembad, alles schoon. In november stil in het dorp. Ohana Beach in Tavernes kost €25 met stroom: boven je grens.",v:["Xeraco","Cullera","Gandia"]},
+ {n:"Gandia, natuurstrand l'Ahuir",lat:39.0187,lon:-0.1799,g:9,pid:48176,score:3.95,rev:41,price:"Gratis",f:1,len:"Enorme parking, ook voor lange campers",net:"Goed",d:"Ook je gratis plek voor Xeraco (6 km). Buiten het seizoen sta je aan het eind van de straat naast het strand. Palmenboulevard van 4 km naar de haven, churros bij de Churrería del Puerto.",v:["Gandia","Xeraco"]},
+ {n:"Vilallonga, Avinguda Antic Regne",lat:38.8907,lon:-0.2114,g:9,pid:325128,bike:"Review: vanaf hier naar de fietsroute door de kloof gefietst, een mooi pad, hier en daar stenig.",score:4.0,rev:3,price:"Gratis",f:1,len:"Veel plaatsen",net:"Dorp, goed",d:"Rustig, vlak, bij het sportcentrum en de route langs de rivier. Jan 2026: vanaf hier naar de fietsroute door de kloof gefietst.",v:["Vilallonga"]},
+ {n:"Oliva, Carrer de Macomer",lat:38.9179,lon:-0.0833,g:9,pid:570276,score:4.6,rev:5,price:"Gratis",f:1,top:1,len:"Vlak grind, 5 plaatsen",net:"Goed",d:"100 m van het strand, politie rijdt langs zonder problemen. Navigatie vindt hem soms niet: vlakbij is ook een ruime openbare parking.",v:["Oliva"]},
+ {n:"Oliva, Carrer Pescadors",lat:38.9199,lon:-0.0836,g:9,pid:162199,score:3.83,rev:53,price:"Gratis",f:1,len:"30 plaatsen; een camper van 7,5 m paste",net:"5G (review)",d:"1 minuut naar het strand, speeltuin ernaast. Rustig, wel zelf je afval meenemen.",v:["Oliva"]},
+ {n:"Àrea Dunes, Daimús",lat:38.9698,lon:-0.1448,g:9,pid:14422,score:4.43,rev:374,price:"€10 à 13 + €4 à 5,50 stroom, ca. €17 à 18,50",e:1,own:"Camping / camperplaatsen Spanje",len:"57 plaatsen",net:"Wifi",d:"Alle voorzieningen, vriendelijk personeel, dicht bij zee. Veel overwinteraars uit Noord-Europa.",v:["Gandia","Oliva"]},
+ {n:"Dénia, parking Les Rotes",lat:38.8245,lon:0.1508,g:10,pid:143805,score:4.16,rev:121,price:"Gratis",f:1,top:1,len:"Aangewezen ruime camperplaatsen, licht hellend",net:"Woonwijk, goed",d:"Nov 2026: rustig, veel ruimte, bus L4 naar Dénia. Steenstrand op loopafstand, het pad naar de Cova Tallada begint hier. Dénia verbiedt stoelen en tafels buiten.",v:["Dénia"]},
+ {n:"Dénia, Carretera de les Marines",lat:38.8483,lon:0.1012,g:10,pid:477428,score:3.69,rev:35,price:"Gratis",f:1,own:"Camping / camperplaatsen Spanje",len:"20 plaatsen, veel diepe kuilen",net:"Goed",d:"Uit je lijsten. Nov 2026: direct aan zee en een goed restaurant, maar veel verkeerslawaai tot 2 uur 's nachts en grote kuilen vol water. Kom niet in het donker aan.",v:["Dénia"]},
+ {n:"Dénia, Carrer Boga",lat:38.8505,lon:0.0992,g:10,pid:450826,score:4.08,rev:61,price:"Gratis, max 24 uur",f:1,warn:1,len:"16 plaatsen",net:"Goed",d:"Aan het strand en rustiger dan de plekken ernaast. Maar: nov 2026 moest een reviewer na 24 uur weg en kreeg een buurman na 5 dagen €1500 boete.",v:["Dénia"]},
+ {n:"Camper Park Xaló",lat:38.7424,lon:-0.0150,g:11,pid:66324,score:4.43,rev:192,price:"€17 + stroom €0,50 per kWh",e:1,len:"Ruime plaatsen",net:"Goed",d:"Nette voorzieningen, picknick- en yogaplek, supermarkt op 50 m, honden welkom. In de wijnvallei achter Dénia en Jávea, iets kouder dan aan zee.",v:["Xaló","Dénia","Jávea"]},
+ {n:"Jávea, Calle Arenal-Montañar",lat:38.7657,lon:0.2020,g:11,pid:607344,score:4.0,rev:10,price:"Gratis",f:1,top:1,len:"2 plaatsen, tot 7 m, licht hellend",net:"Goed",d:"Letterlijk aan het water, met een natuurlijk zwembad in de rotsen. Zonsopkomst en -ondergang vanaf je camper. Maar 2 plaatsen: vol, dan naar de Carretera del Portitxol 300 m verder.",v:["Jávea"]},
+ {n:"Jávea, Carretera del Portitxol",lat:38.7613,lon:0.2011,g:11,pid:392356,score:3.57,rev:7,price:"Gratis",f:1,len:"Vlakke brede straat, 5 plaatsen",net:"Goed",d:"Rustige straat met schaduw, bar met goedkope menu's en een supermarkt ernaast, Cala Blanca op 5 minuten. In het weekend 's nachts wat verkeer.",v:["Jávea"]},
+ {n:"Xàbia, Plaça Suelos Nuevos",lat:38.7893,lon:0.1742,g:11,pid:235817,score:4.22,rev:111,price:"Gratis",f:1,len:"Ruimte voor ca. 8 campers",net:"Goed",d:"Nov 2026 (NL): rustig en schoon, tussen oude stad en boulevard. De politie zegt wisselend of je hier 's nachts mag staan.",v:["Jávea"]},
+ {n:"Arenal, Calle Niza",lat:38.7694,lon:0.1839,g:11,pid:319816,bike:"NL review: in 5 minuten fiets je naar het strand.",score:3.83,rev:18,price:"Gratis",f:1,own:"Dutchvanlife Slaapplekken",len:"20 plaatsen, vlak",net:"Goed",d:"Je lijst heeft hier twee plekken aan de Calle Cannes, 300 m verderop. Reviews: rustig 's nachts, 5 minuten fietsen naar het strand, bij harde wind erg open.",v:["Jávea"]},
+ {n:"Bodega 2020",lat:38.7530,lon:0.1372,g:11,pid:623997,score:4.97,rev:39,price:"Gratis bij 3 flessen per nacht, stroom €5 op 1 plaats",e:1,top:1,wine:1,len:"Tot 9 m, max 2 nachten",net:"Waarschijnlijk goed",d:"Reserveren via WhatsApp of mail. Proeverij met tapas bij Audrey, Nederlandstalig. Biologische wijnen, rust en natuur om te wandelen.",v:["Jávea"]},
+ {n:"Bij de klimwanden van Llíber",lat:38.7491,lon:0.0038,g:11,f:1,own:"Road Fam Map",len:"Onbekend",net:"Onbekend",d:"Uit je lijst Road Fam Map: mooie plek naast klimwanden, goed om te wandelen, rustige nachten. Niet op Park4Night gevonden, dus niet nagecheckt.",v:["Xaló"]},
+ {n:"Benissa, plek met uitzicht",lat:38.7098,lon:0.0501,g:11,f:1,own:"Road Fam Map",len:"Onbekend",net:"Onbekend",d:"Uit je lijst Road Fam Map: iemand stond hier weken, alleen wandelaars, zon en uitzicht, lopend naar het dorp. Niet op Park4Night gevonden, dus niet nagecheckt.",v:["Jávea"]},
+
+ {n:"Nadal Winery (wijngaard)",lat:41.4241,lon:1.6994,g:0,pid:163542,score:4.91,rev:92,price:"Gratis, alleen met reservering",f:1,top:1,wine:1,len:"5 plaatsen, verhard",net:"Waarschijnlijk goed",d:"Slapen tussen de wijnranken van een cavahuis, zonder voorzieningen. Reserveren via WhatsApp. Okt 2026: super rustig, heel vriendelijke mensen. Boek er een proeverij bij.",v:["Sant Sadurní d'Anoia"]},
+ {n:"Vilafamés, Calle Alcalde Vicente Benet",lat:40.1170,lon:-0.0474,g:5,pid:221964,score:3.64,rev:33,price:"Gratis",f:1,own:"Camping / camperplaatsen Spanje",len:"20 plaatsen, onderaan dwars staan is vlak",net:"Dorp, goed",d:"Dit is precies de speld uit je eigen lijst. Rustige straat aan de voet van het dorp, 5 minuten lopen omhoog, drinkwater aan de overkant. Okt 2026: super plek. Mei 2026: honden die blaffen, oordoppen mee.",v:["Vilafamés"]},
+ {n:"Moncofa, camperarea",lat:39.7962,lon:-0.1410,g:6,pid:605446,score:4.19,rev:160,price:"Gratis, water en afvoer, max 48 uur",f:1,len:"30 plaatsen, onverhard",net:"Goed",d:"Ruim terrein vlak bij het strand, veel groen om te lopen. Nov 2026: bouwwerkzaamheden in de buurt, rustigere straten ernaast.",v:["Chilches"]},
+ {n:"Camping-Car Park Burriana",lat:39.8563,lon:-0.0872,g:6,pid:666222,score:3.19,rev:27,price:"€10 à 12 per 24 uur, stroom en service inbegrepen (eenmalig €5 voor de pas)",e:1,len:"15 plaatsen",net:"Goed",d:"Zeezicht, weg ernaast. Nov 2026: alles aanwezig, geen schaduw. Ca. 20 km van Chilches.",v:["Chilches"]},
+ {n:"Camping-Car Park Geldo",lat:39.8359,lon:-0.4642,g:6,pid:399540,score:4.11,rev:269,price:"€8 per 24 uur, service inbegrepen",e:1,len:"Onbekend",net:"Dorp, waarschijnlijk goed",d:"3 km van Segorbe, in het dorp met de muurschilderingen uit je lijst Valencia regio. Let op: sinds het betaald is, noemen de reviews van nov 2026 het vies en slecht onderhouden.",v:["Segorbe"]},
+];
+
+const RI = [
+ {intro:"Het eerste stuk ten zuiden van Barcelona. Kies tussen een tussenstop in de cavastreek of in één keer door naar Altafulla, 156 km.",land:"Wijngaarden in de Penedès, daarna een kust met lange stranden en hier en daar rotsen, zoals bij Tamarit.",hist:"Tarragona was de Romeinse hoofdstad Tarraco. Daarom kom je hier Romeinse resten tegen: de Arc de Berà, het aquaduct Pont del Diable.",eten:"Cava uit de Penedès, en in Altafulla en Tarragona vis en rijst.",seizoen:"Rustig. De Penedès kan 's nachts fris zijn, aan zee is het zachter.",verblijf:"Sant Sadurní 1 nacht als tussenstop. Altafulla 1 à 2 nachten."},
+ {intro:"Een van de minst bebouwde stukken van de Catalaanse kust: baaien, rotsen en kleine vissersdorpen.",land:"Lage kliffen met tientallen kleine baaien, pijnbomen en olijfgaarden in het achterland.",hist:"L'Ametlla de Mar werd in de 18e eeuw gesticht door vissers uit Valencia.",eten:"Tonijn en vis in L'Ametlla, olijfolie van de finca's, honing uit El Perelló.",seizoen:"Stil en zacht. De baaien zijn op hun mooist zonder drukte.",verblijf:"2 à 3 nachten, bijvoorbeeld 1 in L'Ametlla en 1 of meer in L'Ampolla of op de finca."},
+ {intro:"Een korte uitstap van de kust de Ebro op, 25 minuten van L'Ampolla. Het rivierdal ligt laag, dus het is er niet echt kouder dan aan zee.",land:"Rivierdal met sinaasappelboomgaarden, de Ebro breed en groen, de bergen van Els Ports op de achtergrond.",hist:"Tortosa was eeuwenlang de poort tussen Catalonië en Valencia, met een Romeinse, een Moorse en een christelijke stad over elkaar heen.",eten:"Sinaasappels en mandarijnen uit het dal, en eenvoudige rivierkeuken.",seizoen:"Mandarijnentijd. Overdag aangenaam, 's nachts wat frisser dan aan zee.",verblijf:"Een dag, eventueel één nacht."},
+ {intro:"Het grootste wetland van Catalonië. Plat, open, met overal water en vogels.",land:"Rijstvelden, lagunes, zandtongen en duinen, kilometers ver zonder heuvel.",hist:"De Delta is pas de laatste eeuwen zo groot geworden door het slib van de Ebro.",eten:"Rijst uit de Delta, mosselen en oesters uit de baaien.",seizoen:"De rijstvelden zijn na de oogst leeg of onder water, en er zijn veel trekvogels en flamingo's.",verblijf:"2 à 3 nachten om te fietsen."},
+ {intro:"Peñíscola op zijn rots en daarna het ongerepte natuurpark van de Serra d'Irta tot Alcossebre.",land:"Bergrug direct aan zee, met pijnbossen, wachttorens en baaien.",hist:"Het kasteel van Peñíscola werd door de Tempeliers gebouwd en later het paleis van de laatste tegenpaus Papa Luna.",eten:"Vis en rijst in Peñíscola, artisjokken uit de streek van Benicarló.",seizoen:"Peñíscola is buiten het seizoen veel rustiger dan in de zomer.",verblijf:"Peñíscola 1 nacht, Alcossebre 2 à 3 nachten."},
+ {intro:"Wetlands, een oude spoorlijn langs de kliffen en een rood stenen dorp in het binnenland.",land:"Duinen en wetlands bij Torre la Sal, kliffen tussen Benicàssim en Oropesa, olijven en amandelen rond Vilafamés.",hist:"Vilafamés heeft een kasteel van Moorse oorsprong en staat op de lijst van mooiste dorpen van Spanje.",eten:"Sinaasappels uit de Plana, en lunch in de oude straten van Vilafamés.",seizoen:"Aan zee zacht. Vilafamés ligt hoger en is 's nachts frisser.",verblijf:"Torre la Sal 1 à 2 nachten, Benicàssim 1 nacht, Vilafamés 1 nacht."},
+ {intro:"Het stuk tussen Castellón en Valencia. Aan zee rustig, landinwaarts een waterval.",land:"Vlakke kust met kiezelstranden, landinwaarts het groene dal van de Palancia.",hist:"Sagunt werd beroemd door het beleg door Hannibal. Segorbe was een bisschopsstad.",eten:"Sinaasappelboomgaarden overal, en in Segorbe vleeswaren uit het binnenland.",seizoen:"Kust zacht. Segorbe ligt hoger en is kouder, kies daarom een zonnige dag voor de waterval.",verblijf:"1 nacht per plek, of sla Segorbe over als het koud is."},
+ {intro:"Valencia vanaf het strand, en de Albufera er direct onder.",land:"Stad, strand, en ten zuiden lagune, rijstvelden en dennenbos.",hist:"De Turia werd na een overstroming in 1957 omgelegd. De oude bedding werd een park dwars door de stad.",eten:"Paella komt uit de Albufera: eet hem in El Palmar.",seizoen:"Mild, en de stad is in december gezellig zonder drukte.",verblijf:"2 à 3 nachten."},
+ {intro:"De kaap van Cullera met kasteel en vuurtoren, en de bosvallei van La Murta in de heuvels.",land:"Rijstvelden, een losse heuvel aan zee, en achter Alzira de groene vallei van La Murta.",hist:"Het klooster van La Murta was eeuwenlang een plek van kluizenaars, nu een ruïne in het bos.",eten:"Rijst uit de Ribera, en sinaasappels.",seizoen:"Zacht, de vallei van La Murta is groen.",verblijf:"Cullera 1 à 2 nachten, La Murta alleen als je de weg aandurft."},
+ {intro:"Lange natuurstranden en achter de kust een kloof met oude spoortunnels.",land:"Duinen en stranden, achter de kust de bergen van de Safor.",hist:"Gandia was het hertogdom van de familie Borja.",eten:"Fideuà komt uit Gandia: een paella van korte noedels.",seizoen:"Veel overwinteraars, maar de stranden zijn leeg.",verblijf:"Gandia 1 à 2 nachten, Vilallonga 1 nacht, Oliva 1 à 2 nachten."},
+ {intro:"Hier begint de Costa Blanca met rotskust en de berg Montgó.",land:"Rotsen, helder water, de Montgó als achtergrond.",hist:"De Cova Tallada is een oude steengroeve aan zee. Er werd tosca-steen gehaald voor gebouwen in Dénia en Xàbia.",eten:"Gamba roja van Dénia is beroemd.",seizoen:"Zacht, en het pad naar de Cova Tallada is in de winter vrij toegankelijk.",verblijf:"2 nachten."},
+ {intro:"Het eindpunt van deze route, met kapen, grotten en een wijnboer.",land:"Kapen en baaien aan zee, wijngaarden in de vallei van Xaló.",hist:"De oude stad van Xàbia is gebouwd van tosca, dezelfde zandsteen als uit de Cova Tallada.",eten:"Wijn uit de Xaló-vallei en van Bodega 2020.",seizoen:"Een van de zachtste stukken van de route.",verblijf:"2 à 3 nachten, en daarna verder naar het zuiden of de bergen in."}
+];
+
+// Lees meer: waarom een plek leuk is. Per naam van een plaats (V) of tip (P).
+const MEER = {
+"Sant Sadurní d'Anoia":["Hier komt het grootste deel van alle Spaanse cava vandaan. Onder het stadje lopen kilometers kelders waar miljoenen flessen liggen te rijpen, want cava krijgt net als champagne zijn bubbels in de fles zelf.","Het begon in 1872, toen Josep Raventós van het huis Codorníu als eerste in Spanje mousserende wijn op de Franse manier maakte. De kelders van Codorníu zijn ontworpen door Puig i Cadafalch, een tijdgenoot van Gaudí, en heten in de streek de kathedraal van de cava.","Bij een klein familiebedrijf is een proeverij vaak persoonlijker. Je proeft er de druiven van de Penedès: xarel·lo, macabeu en parellada."],
+"Altafulla":["Het oude dorp, de Vila Closa, ligt nog binnen zijn middeleeuwse muren, met smalle straten, poorten en een kasteel. 's Avonds is het er stil.","Op het strand staan de Botigues de Mar: een rij witte huizen van zo'n 200 jaar oud waar vissers hun boten en netten bewaarden. Ze staan nog steeds direct op het zand.","Vlak bij je slaapplek ligt de Romeinse villa Els Munts. Hier woonde in de 2e eeuw een rijke Romein uit Tarraco, met een eigen badhuis. De villa hoort bij het werelderfgoed van Tarragona."],
+"L'Ametlla de Mar":["Een echt vissersdorp, in de 18e eeuw gesticht door vissers uit de streek van Valencia. De haven draait nog altijd om vis, en vooral om tonijn: voor de kust liggen kwekerijen van blauwvintonijn, die grotendeels naar Japan gaat. In de restaurants aan de haven eet je hem vers.","Het mooiste zijn de baaien. Langs de kust liggen er tientallen, de meeste klein, met pijnbomen tot aan het water. Het kustpad GR-92 rijgt ze aan elkaar."],
+"L'Ampolla":["L'Ampolla is de noordelijke poort van de Ebrodelta. Achter de huizen begint de vlakte met rijstvelden en de baai van El Fangar, waar mosselen en oesters worden gekweekt.","Het is een rustige haven met een boulevard en lage huizen. Hier eet je de mosselen van de Delta vers, of rijst uit de Delta in een arròs. Naar het noorden loopt het kustpad langs kleine baaien naar L'Ametlla de Mar."],
+"Tortosa":["Tortosa lag eeuwenlang op de grens van culturen. Eerst was er een Romeinse stad, daarna een belangrijke Moorse stad, en na de herovering in 1148 woonden christenen, joden en moslims hier naast elkaar.","De gotische kathedraal is gebouwd op de plek van de oude moskee. Erboven ligt La Suda, het Moorse kasteel, nu een parador. Mooi zijn ook de Reials Col·legis, renaissancegebouwen met een binnenplaats vol beeldhouwwerk, en de ijzeren markthal aan de rivier uit 1887.","In 1938 werd rond Tortosa de slag om de Ebro gevochten, de bloedigste slag van de Spaanse Burgeroorlog. De stad werd toen zwaar gebombardeerd."],
+"Ebrodelta":["De Delta is een van de grootste wetlands van de westelijke Middellandse Zee: 320 vierkante kilometer plat land, opgebouwd uit het slib van de Ebro. Een groot deel is rijstveld.","In de winter is het vogeltijd. Tienduizenden watervogels komen hier overwinteren, en flamingo's zie je het hele jaar in de lagunes. Er zijn meer dan 300 vogelsoorten geteld.","De Delta is jong en kwetsbaar. Hij groeide vooral de laatste duizend jaar, maar sinds de stuwdammen in de rivier komt er nauwelijks nog slib aan en slaat de zee stukken weg. Dat zie je goed bij El Trabucador, de smalle zandtong."],
+"Peñíscola":["De oude stad ligt op een rots in zee en hangt alleen met een smalle strook zand aan het land vast. Bovenop staat het kasteel dat de Tempeliers rond 1300 bouwden.","Het verhaal van de stad is dat van Papa Luna. Pedro de Luna werd in 1394 in Avignon gekozen tot paus Benedictus XIII. Toen de kerk hem afzette, trok hij zich terug in dit kasteel en bleef hij tot zijn dood in 1423 volhouden dat hij de echte paus was. Daar komt de Spaanse uitdrukking 'seguir en sus trece' vandaan: koppig volhouden.","Zoek El Bufador op, een spleet in de rots tussen de huizen waar de zee bij storm met een brul doorheen spuit. En misschien herken je het decor: hier is de film El Cid uit 1961 opgenomen, en scènes van Game of Thrones."],
+"Alcossebre":["Alcossebre is de badplaats van Alcalà de Xivert. Het mooiste ligt ten noorden: het natuurpark Serra d'Irta, een van de laatste stukken kust in de regio Valencia zonder bebouwing. Zo'n 15 km baaien, rotsen en pijnbos, alleen bereikbaar over een onverhard pad.","In de heuvels staan wachttorens tegen piraten, zoals de Torre Ebrí en de Torre Badum, en de ruïne van het Tempeliers-kasteel van Xivert."],
+"Torre la Sal":["Een klein gehucht rond een oude wachttoren, tussen de zee en het natuurpark Prat de Cabanes-Torreblanca. Dat is een moeras achter de duinen waar vroeger turf werd gestoken. Nu rusten er watervogels.","Er is hier verder weinig, en dat is juist het fijne: rust, zee en een vlonderpad door de natuur."],
+"Benicàssim":["Rond 1900 werd Benicàssim het zomeroord van rijke families uit Valencia en Castelló. Ze bouwden langs het strand villa's in allerlei stijlen, van Moors tot Engels. Er staan er nog tientallen, langs de Ruta de les Villes.","Achter het dorp ligt het natuurpark Desert de les Palmes met een karmelietenklooster. De monniken stoken er sinds het eind van de 19e eeuw een kruidenlikeur, de Licor Carmelitano.","In de zomer is Benicàssim bekend van een groot muziekfestival, maar in de winter is het stil."],
+"Vilafamés":["Een dorp van roodbruine zandsteen tegen een heuvel, met bovenop de resten van een Moors kasteel. Het staat op de lijst van mooiste dorpen van Spanje.","De Roca Grossa is een rots zo groot als een huis die al eeuwen schuin over de rand hangt, alsof hij elk moment naar beneden kan rollen.","Wat je niet verwacht: in het middeleeuwse paleis van de baljuw zit sinds 1972 een museum voor moderne kunst, met werk van Spaanse kunstenaars uit de 20e eeuw."],
+"Chilches":["Een rustig dorp aan zee, met een lang strand van gekleurde kiezels en achter het dorp sinaasappelboomgaarden tot aan de bergen.","Een paar kilometer zuidelijker ligt Almenara, met een kasteel op een heuvel en het moerasgebied van de Marjal d'Almenara. Geen plek voor bezienswaardigheden, wel om een paar dagen aan zee te staan."],
+"Segorbe":["Segorbe was eeuwenlang een bisschopsstad, en dat zie je aan de kathedraal en de kloosters. In de oude stad staan nog middeleeuwse torens van de stadsmuur en een stuk van het oude aquaduct.","Leuk om te zien is de Fuente de los 50 Caños: een fontein met 50 spuiers, met boven elke spuier het wapen van een Spaanse provincie.","Door Segorbe loopt de Vía Verde de Ojos Negros. Over dat spoor ging vroeger het ijzererts van de mijnen in Aragón naar de hoogovens van Sagunt. Nu fiets of loop je erover naar Navajas en de waterval."],
+"El Puig":["Hier werd in 1237 de slag gestreden waarmee koning Jaume I de weg naar Valencia vrijmaakte. Op de heuvel bouwde hij daarna het klooster van Santa Maria del Puig. Daarin zit nu een museum over de boekdrukkunst, met oude drukpersen.","Aan zee is El Puig vooral rustig: een lange boulevard en strand, met Valencia op fietsafstand."],
+"Valencia":["Na een grote overstroming in 1957 werd de rivier de Turia om de stad heen gelegd. De oude bedding werd een park van ruim 9 km, dwars door de stad. Je fietst er van de zee tot de oude stad door het groen.","In de oude stad staan de Llotja de la Seda, de gotische zijdebeurs uit de 15e eeuw en werelderfgoed, en de Mercat Central, een enorme modernistische markthal. Goed voor een lunch aan de bar.","De kathedraal bewaart een beker die volgens de traditie de Heilige Graal is. En probeer een horchata, de koude drank van aardamandelen, met fartons om in te dopen. Die komt uit Alboraia, vlak bij de stad."],
+"Cullera":["Cullera ligt tegen een losse berg aan zee, met bovenop een kasteel en een heiligdom. Vanaf boven zie je de rijstvelden, de monding van de rivier de Xúquer en de kust tot aan de Montgó.","In 1550 viel de Turkse piraat Dragut het dorp aan. In de grot waar hij zich volgens de legende verstopte, zit nu een museum over piraten."],
+"Xeraco":["Een klein dorp tussen sinaasappelboomgaarden, met een strand met duinen een paar kilometer verderop. Erachter liggen het moeras van de Marjal de la Safor en de bergen van de Safor.","Het is een plek om uit te rusten, met lege stranden in de winter en Gandia vlakbij."],
+"Gandia":["Gandia was de stad van de Borja's, beter bekend als de Borgia's. Paus Alexander VI kwam uit deze familie, en zijn achterkleinzoon Francesc de Borja werd hertog van Gandia en later heilig verklaard. Hun paleis staat midden in de stad.","Fideuà is hier uitgevonden: een soort paella met korte noedels in plaats van rijst. Volgens het verhaal had een scheepskok geen rijst meer aan boord.","Het strand is breed met fijn zand, en buiten het seizoen is de boulevard stil."],
+"Vilallonga":["Vilallonga ligt aan de voet van de Safor, de berg achter Gandia. Hier begint de kloof van de rivier de Serpis, het Racó del Duc.","Door de kloof reed vanaf 1893 de trein van Alcoi naar Gandia, aangelegd door een Engelse maatschappij. In de streek heet hij nog steeds de trein van de Engelsen. In 1969 reed hij voor het laatst. Nu is het een pad met tunnels en bruggen, met de rivier diep onder je."],
+"Oliva":["De oude stad ligt tegen een heuvel met de resten van het kasteel van Santa Anna. Vanuit de wijk bovenaan kijk je over de sinaasappelvlakte en de zee.","Ten zuiden van Oliva ligt het natuurpark Marjal de Pego-Oliva, een moeras met heldere bronnen en rijstvelden. Een rustige plek om te lopen of te fietsen."],
+"Dénia":["Dénia ligt aan de voet van de Montgó, de berg die je overal ziet. Boven de haven staat het kasteel en eronder ligt Baix la Mar, de oude vissersbuurt met gekleurde huizen.","De stad staat bekend om eten: UNESCO riep Dénia uit tot creatieve stad van gastronomie. Het beroemdste is de gamba roja, de rode garnaal uit de diepe zee voor de kust.","Vanaf de haven vertrekken de boten naar Ibiza en Mallorca."],
+"Jávea":["Xàbia heeft drie gezichten: de oude stad van goudkleurige tosca-steen met de vestingkerk Sant Bartomeu, de haven, en het strand van Arenal.","Rond de kapen is de kust ruig. Bij Cap de Sant Antoni staat een vuurtoren boven steile kliffen, en op de heuvel La Plana staan oude windmolens. Het water is hier helder, met veel grotten."],
+"Xaló":["Een wijndorp in de vallei achter de kust. Hier groeit vooral moscatel, de zoete druif waar vroeger rozijnen van werden gemaakt.","Let op de riu-raus: oude gebouwen met een rij bogen ervoor. Daaronder lagen de druiven te drogen. Bij de coöperatie Bodegas Xaló proef je de wijn, en op zaterdag is er een grote rommelmarkt langs de rivier."],
+
+"Cavakelders van Sant Sadurní":["In de kelders liggen de flessen schuin in houten rekken. Vroeger werden ze elke dag met de hand een stukje gedraaid, zodat de gist naar de hals zakte en eruit kon. Dat zie je bij de meeste cavahuizen nog terug.","De grote namen zijn Codorníu en Freixenet. Een klein familiebedrijf is vaak persoonlijker, en bij de Nadal Winery kun je ook slapen."],
+"Vila Closa van Altafulla":["Binnen de oude muren is het autoluw en stil: stenen huizen, poorten en kleine pleinen, met een paar restaurants en bars. Het kasteel bovenin was eeuwenlang van de markiezen van Tamarit."],
+"Kasteel Tamarit en het GR-92":["Het kasteel staat sinds de 11e eeuw op een rots aan de monding van de rivier de Gaià. Het is privébezit en alleen van buiten te zien.","Het mooiste is de wandeling ernaartoe: over het strand langs de vissershuizen van Altafulla, dan door het pijnbos op de rotsen."],
+"Arc de Berà":["Een Romeinse triomfboog van zo'n 2000 jaar oud, op de Via Augusta, de Romeinse weg van Rome naar Cádiz. De N-340 volgt nog steeds grotendeels die oude route."],
+"Pont del Diable":["Een Romeins aquaduct van 217 m lang en 27 m hoog. Het bracht water van de rivier de Francolí naar Tarraco.","De naam komt van een legende: de duivel bouwde het in één nacht, in ruil voor de ziel van wie er als eerste overheen ging. De dorpelingen stuurden een ezel."],
+"Kustpad GR-92 door de baaien":["De GR-92 is het lange-afstandspad langs de hele Catalaanse kust, van de Franse grens tot aan de Delta. Tussen L'Ametlla en L'Ampolla is het een van de mooiste stukken: het pad gaat op en neer over lage rotsen, van baai naar baai, en bijna overal kun je het water in.","Het pad is gemarkeerd met rood-witte strepen. Op de kaart staat het als bruine stippellijn."],
+"Haven van L'Ametlla de Mar":["Aan het eind van de middag komen de vissersboten binnen en wordt de vis in de visafslag geveild. Rond de haven zitten restaurants met vis van die dag. Bestel tonijn: die komt hier uit zee."],
+"Castell de Sant Jordi d'Alfama":["Rond 1200 gebouwd door de ridderorde van Sant Jordi d'Alfama, een Catalaanse orde die de kust moest beschermen tegen piraten. Nu staat er een gerestaureerde vesting aan de baaien, een rustige plek met uitzicht."],
+"Kathedraal en La Suda, Tortosa":["La Suda was het kasteel van de Moorse heersers. In de binnenplaats zie je nog een oude waterput uit die tijd, en vanaf de muren kijk je over de daken, de kathedraal en de Ebro.","De kathedraal is van binnen gotisch, met een stille kloostergang. Aan de buitenkant zie je dat er eeuwen aan gebouwd is."],
+"Via Verda vanaf Tortosa":["Over dit spoor reed de trein van de Val de Zafán, van Aragón naar de Ebro. Nu is het een verharde fiets- en wandelweg tot Arnes, door de bergen van Els Ports, met tunnels en viaducten.","Vanaf Tortosa klimt het pad geleidelijk. Terug rol je dus vanzelf naar beneden."],
+"Lagune L'Encanyissada":["De grootste lagune van de Delta, met rietkragen, uitkijktorens en een houten huis op palen, de Casa de Fusta, nu een bezoekerscentrum.","In de winter zie je hier flamingo's, eenden en reigers. Vroeg in de ochtend en laat in de middag is het licht het mooist."],
+"El Trabucador":["Een zandtong van zo'n 6 km lang en soms maar een paar meter breed, tussen de open zee en de baai van Els Alfacs. Aan het eind liggen de zoutpannen van La Trinitat, waar flamingo's voedsel zoeken. Bij storm slaat de zee er soms helemaal doorheen."],
+"Riumar en de riviermonding":["Hier stroomt de Ebro na ruim 900 km in zee. Vanaf Riumar loop je over vlonders door de duinen naar het strand bij de monding. Een lege, wijde plek, zeker in de winter."],
+"Les Cases d'Alcanar":["Vroeger stonden hier alleen een paar vissershuizen van Alcanar. Nu is het een haven met visrestaurants aan de boulevard, bekend om rijstgerechten met vis. In het achterland groeien de mandarijnen van Alcanar."],
+"Kasteel van Papa Luna":["De Tempeliers bouwden het tussen 1294 en 1307. Na het verbod op hun orde kwam het bij de Orde van Montesa, en later woonde Papa Luna er tot zijn dood. Binnen zie je de grote zalen.","Met Jip kun je over de stadsmuren en door de straten eromheen lopen. Die wandeling is van buitenaf al de moeite."],
+"Kustpad Serra d'Irta":["Het pad volgt de lege kust van het natuurpark, langs baaien met kiezels en rotsen en door lage begroeiing van rozemarijn en dwergpalm. Verderop staat de wachttoren Torre Badum hoog op de kliffen.","Er zijn onderweg bijna geen voorzieningen. Neem water mee, ook voor Jip."],
+"Torre Ebrí":["Een oude wachttoren op de kam van de Serra d'Irta. Van hieruit zie je de hele kust, van Alcossebre tot het kasteel van Peñíscola. Vroeger werden vanaf zulke torens met vuur en rook signalen gegeven als er piratenschepen in zicht kwamen."],
+"Cala de la Sunyera":["Een kleine baai tussen lage kliffen aan de noordkust van Vinaròs. Langs die kust liggen meer van zulke baaien, met een pad over de rotsen ertussen. Vinaròs is bekend om zijn langoustines."],
+"Via Verde del Mar":["Hier reed vroeger de trein tussen Valencia en Barcelona, vlak langs de kliffen. Toen het spoor landinwaarts werd gelegd, werd het oude stuk een wandel- en fietspad.","Je gaat door tunnels en langs de wachttoren Torre de la Corda, met steeds de zee onder je. Op de kaart is het de paarse lijn tussen Benicàssim en Oropesa."],
+"Prat de Cabanes":["Een smal moeras van zo'n 8 km achter de duinen. Vroeger werd hier turf gestoken en rijst verbouwd. Nu is het een natuurpark met reigers, eenden en roofvogels. Langs de rand loopt een pad, met de bergen op de achtergrond."],
+"Dorp Vilafamés en de Roca Grossa":["De Roca Grossa ligt aan de rand van het dorp, onder het kasteel. Na de rots loop je door naar boven: vanaf de kasteelruïne zie je de hele vlakte tot aan de zee.","Onderweg kom je langs het museum voor moderne kunst in het oude paleis van de baljuw."],
+"Salto de la Novia":["De naam betekent de sprong van de bruid. Volgens de legende moest een bruid uit Navajas als bewijs van haar liefde over de rivier springen, en dat ging mis.","De waterval valt zo'n 60 m naar beneden in een groene kloof van de rivier de Palancia. Er lopen paden langs het water. Vanuit Segorbe kom je er over de Vía Verde de Ojos Negros."],
+"Oude stad van Segorbe":["Loop van de kathedraal langs de Torre de la Cárcel en de Torre del Botxí, twee middeleeuwse torens van de oude stadsmuur. In de laatste woonde vroeger de beul. Onderweg zie je het aquaduct en de fontein met 50 spuiers."],
+"Kasteel van Sagunt":["Een vesting van bijna een kilometer lang over de heuvelrug, met muren van Iberiërs, Romeinen, Moren en christenen door elkaar. In 219 voor Christus belegerde Hannibal de stad, het begin van de Tweede Punische Oorlog.","Onder aan de heuvel ligt het Romeinse theater. Dat werd in de jaren 90 met nieuwe stenen opgebouwd, wat in Spanje nog steeds een omstreden restauratie is."],
+"Turia-tuinen en de oude stad":["Het park volgt de oude rivierbedding onder de oude bruggen door. Onderweg ligt de Gulliver, een enorme speeltuin in de vorm van een liggende reus. Aan het eind kom je bij de witte gebouwen van de Ciutat de les Arts.","Vanuit het park ben je in een paar minuten in de oude stad, bij de kathedraal en de Mercat Central."],
+"Ciutat de les Arts i les Ciències":["Witte, futuristische gebouwen van architect Santiago Calatrava, gebouwd vanaf 1998 en omringd door vijvers met blauw water. Het Oceanogràfic is het grootste aquarium van Europa.","Van buitenaf, met Jip, is het al een bijzondere wandeling. Zeker in de late middag als de zon op het wit staat."],
+"Devesa del Saler":["Een strook dennenbos en duinen tussen de zee en het meer van de Albufera. In de jaren 70 zou hier een hotelstad komen. Een groot burgerprotest onder de leus El Saler per al poble hield dat tegen.","Nu loop je er over zandpaden onder de pijnbomen, met aan de ene kant de zee en aan de andere kant de lagune."],
+"El Palmar en de Albufera":["De Albufera is een groot zoetwatermeer, omringd door rijstvelden. Hier komt de paella vandaan, oorspronkelijk met konijn, kip en bonen, niet met vis.","El Palmar is een vissersdorp op een eiland in het moeras, vol restaurants. Bij zonsondergang varen er platte houten boten het meer op."],
+"Kasteel van Cullera":["Bovenop de berg staan een middeleeuws kasteel en een 19e-eeuws heiligdom. De weg omhoog loopt langs kapellen van een kruisweg. Vanaf boven zie je de rijstvelden, de rivier en de hele kust."],
+"Vuurtoren van Cullera":["De vuurtoren staat op de kaap aan de noordkant van de berg. Je kijkt er ver over zee en langs het strand richting Valencia. Mooi om naartoe te fietsen."],
+"Vallei van La Murta":["In deze bosvallei stichtten monniken van de orde van Sint-Hiëronymus in de 14e eeuw een klooster. Na de onteigening van de kloosters in 1835 raakte het in verval. Nu staan de ruïnes van de kerk en een toren tussen de pijnbomen en eiken.","Er lopen gemarkeerde paden, zoals de Senda Botànica van 3,6 km. Op de kaart staan ze als bruine stippellijnen."],
+"Racó del Duc":["De naam betekent hoek van de hertog: het land was van de hertogen van Gandia. Het pad volgt de rivier de Serpis door een kloof met steile wanden, met tunnels en bruggen. Neem een lamp mee voor de tunnels.","Na een paar kilometer kom je bij de ruïne van de Fàbrica de l'Infern. Daar keren de meeste mensen om."],
+"Palau Ducal, Gandia":["Het paleis van de hertogen van Gandia. Francesc de Borja werd hier in 1510 geboren. Hij werd later jezuïet en heilig verklaard. Binnen zijn rijk versierde zalen, met als mooiste de gouden galerij."],
+"Oude stad van Oliva":["Loop omhoog naar de wijk Santa Anna, met witte huizen tegen de helling en de resten van het kasteel. Beneden staat het huis van de 18e-eeuwse geleerde Gregori Mayans, nu een museum."],
+"Kasteel van Xàtiva":["Een van de grootste kastelen van Spanje, over de hele bergkam. In Xàtiva werden twee pausen uit de familie Borja geboren, Calixtus III en Alexander VI.","In 1707 liet koning Felipe V de stad in brand steken. Daarom hangt zijn portret in het museum van Xàtiva tot vandaag ondersteboven."],
+"Cova Tallada en Torre del Gerro":["De Cova Tallada is een grot die door mensen is uitgehakt. Hier werd eeuwenlang tosca-steen gehaald, de zandsteen waarmee Dénia en Xàbia zijn gebouwd. Je komt binnen via de rotsen en ziet de zee door de openingen.","De Torre del Gerro is een wachttoren uit de 16e eeuw tegen piraten, op de helling van de Montgó, met uitzicht over Les Rotes."],
+"Kasteel en Baix la Mar, Dénia":["Het kasteel gaat terug tot de Moorse tijd, toen Dénia de hoofdstad was van een eigen koninkrijk dat zelfs Mallorca en Ibiza bestuurde. In het kasteel zit een archeologisch museum.","Baix la Mar is de buurt van de vissers, met gekleurde huizen en smalle straten vlak bij de haven."],
+"Oude stad van Xàbia":["Sant Bartomeu is een kerk die tegelijk een fort was, met schietgaten, want de kust werd lang door piraten geplaagd. Rond de kerk liggen straten met huizen van goudkleurige tosca en smeedijzeren balkons."],
+"Grotten bij Cap de la Nau":["De Cova dels Òrguens dankt zijn naam aan de druipsteen die op orgelpijpen lijkt. Cala en Caló is een baai onder de kliffen. Bij La Barraca, ook wel Cala Portitxol, ligt een eiland voor de kust en staan witte vissershuizen met blauwe luiken."],
+"Bodega 2020":["Een kleine wijnmaker die biologisch werkt. Audrey ontvangt je zelf en vertelt bij de proeverij met tapas over haar wijnen. Volgens de reviews spreekt ze Nederlands, en je kunt er met de camper blijven slapen."],
+"Fonts de l'Algar":["De rivier de Algar stroomt hier over kalkrotsen in een reeks watervallen en blauwgroene poelen. In de zomer is het druk met zwemmers, in de winter rustig. Er loopt een pad langs het water."]
+};
+
+const TR=[{"n": "Kustpad naar kasteel Tamarit", "k": "w", "km": "ca. 3,5 km enkele reis", "at": ["Kasteel Tamarit en het GR-92", "Altafulla"], "start": [41.1323, 1.3921], "d": "Van Altafulla over het strand en het GR-92 door het pijnbos naar het kasteel op de rots.", "s": ["ahbXymYA_@GU@EIIAMEUIGQF?WDEMqAGUAWGc@CE@HKDGAGg@?MFGMw@BASsC@A@]FUHIJDDG?S@]AQ?UFGC?FE?ICC"]}, {"n": "GR-92 langs de baaien", "k": "w", "km": "ca. 22 km van Les Tres Cales tot L'Ampolla, keer om wanneer je wilt", "at": ["Kustpad GR-92 door de baaien", "L'Ametlla de Mar", "L'Ampolla"], "start": [40.9108, 0.8282], "d": "Het kustpad van baai naar baai, gemarkeerd met rood-witte strepen. Vanaf Les Tres Cales loop je zuidwaarts het dorp door en dan verder naar L'Ampolla.", "s": ["_f~WgkOBNJ@EB@DD@?PNBFKLLTAHBKZJEDHOJ@DPKHKDD@?DJD@H`@FEBFNALFALBJADDFLC@JD?JTHF@FER@HHCJMDBBHNEJOFLLDDA@ELACPJFDJALH@FOJ@LNCVH@DGFJTJJRCT@DXNVVBKBBJGTF@LMNF@@BCB@@JGFOH??RCL@TH@NZLBNb@CHLGFDLVAFJ@BLAPHHH]B?TZAJBHNDNA?THDBDANGN", "{n}WctN@@FCBHLDJ?BL@C@DJAHFDHLABFBCJZRCFXEJBHH?\\RPMJ?v@NFL?FYPIb@BBJWROH?RJXDBHD@F`@ATBFNBHTFDJ`@NX@PVVFA?VHTPD@HCBNv@Ez@H@?PN\\B@R\\VJBPL@FHND?BHBBFH?BHFCHRHFL?RKVH?TJED@IXGDBLEFBFEBALDFCFB\\FDADDBDLCZBB@NT\\J?JFBJADDFNJFAABPQF?\\\\LX@TBHVHHANBHJ^Hb@T|@RZCRITBHAFRB@HG@GPB@LMXE^Dr@JTPJJL@JNLJKPEJ?DBJfAFJDTDHI^D@Lh@HNTLFVD?JL@DGRPPBHCFANHVHB@XE@APB??FF@DPLR?L"]}, {"n": "Kustpad door de Serra d'Irta", "k": "w", "km": "ca. 11 km tot voorbij Torre Badum, keer om wanneer je wilt", "at": ["Kustpad Serra d'Irta", "Alcossebre"], "start": [40.2427, 0.2765], "d": "Onverhard pad langs de lege kust van het natuurpark. Ook de EuroVelo 8 volgt dit pad, dus met een e-bike kan het ook.", "s": ["u~pWykDQ\\OpAESe@aAe@u@VSd@Q?YM[s@w@AIECc@Ge@BIEGOA_@KS_@o@u@{@CQKCw@k@i@MKIQ?[S]Wc@q@i@g@Gm@O[CMOOc@?Wc@A[Ua@?[DMC]a@[?IBYFKICT_@?OHCCIy@HWLKNGBAISMGOAWOk@KUGYc@Kq@a@]c@KWOo@OeAKOI[aAu@"]}, {"n": "Via Verde del Mar", "k": "f", "km": "5,6 km enkele reis", "at": ["Via Verde del Mar", "Benicàssim"], "start": [40.0568, 0.0882], "d": "Oude spoorlijn langs de kliffen van Benicàssim naar Oropesa, met tunnels. Ook mooi om te lopen.", "s": ["a{mWutAdHpE`@\\Xd@tAlETd@f@l@Ld@Bh@Q`B?n@Dn@VpA@RC`@"]}, {"n": "Via Verde del Serpis", "k": "f", "km": "ca. 6 km tot de Fàbrica de l'Infern, enkele reis", "at": ["Racó del Duc", "Vilallonga"], "start": [38.8883, -0.2121], "d": "Het oude spoor van de trein van de Engelsen door de kloof, onverhard en hier en daar stenig. Te voet of op de fiets.", "s": ["cjvVpaDHM?SGIQCSIMe@A_@@KDME[KYMw@FGLE@CH@FKb@BLCHIJWFABIJAU?UFOOEDAPA?GO@QEGCSKWAMOYSo@a@{@e@q@@c@SeACuDE]Sa@", "spvVdcCqBeAEG"]}, {"n": "Senda Botànica, La Murta", "short": "Senda Botànica", "k": "w", "km": "3,6 km rond", "at": ["Vallei van La Murta"], "d": "Gemarkeerde rondwandeling (SL-CV 81) door het bos van de vallei, langs het klooster.", "s": ["kf{Vz`FCAIDYf@GECGA?Md@FLKR@\\FLHHDLKXAHBDHDBAFUB?NK?ODc@HQBICa@JKDONU?QDCHO@GAGHGFODWODGDIVGFAPIFK@EHC@"], "start": [39.1286, -0.3614]}, {"n": "Senda Històrica, La Murta", "short": "Senda Històrica", "k": "w", "km": "ca. 1,7 km", "at": ["Vallei van La Murta"], "d": "Korte gemarkeerde route (SL-CV 82) langs de resten van het klooster.", "s": ["of{V`bFECM^?RCPGx@IFGRIJ", "uf{V|aFHa@CAC@EIDUAGAC@KE]B]@K@A"], "start": [39.1288, -0.3633]}, {"n": "Fietsroute rond de lagunes", "short": "lagunes", "k": "f", "km": "ca. 23 km in totaal", "at": ["Lagune L'Encanyissada", "Ebrodelta"], "start": [40.6592, 0.6754], "d": "Bewegwijzerde route 1 van de Delta, de Ruta de les llacunes: vanaf de Casa de Fusta langs de lagunes. Helemaal vlak.", "s": ["{xxW}nK?DTAVGzCkCAc@i@{CBIHA`@NE{AK]q@f@}DcK~By@w@yEKuGiAJMAAGoBHFaECEIqBH]DgAIUQOCYH]CmAHaACKFC", "abyWwdLXa@DYCYa@g@c@CEKRaG", "{xxWwnK{AFeAhCmDcOC_G`@gAHG", "}byWgqLLgEpBm@", "g_yWwmMK[JoA?_@`AgGdAhA"]}, {"n": "Fietsroute 11 door de Delta", "short": "route 11", "k": "f", "km": "ca. 18 km", "at": ["Ebrodelta"], "d": "Bewegwijzerde route van Sant Jaume d'Enveja via Els Muntells naar het strand van Eucaliptus, langs rijstvelden.", "s": ["wazWmjMFoAOcD@kB\\}@n@a@FWj@}@pByFfAb@VyA~@g@dAy@vB_AVuAbATvC|APSb@|@ATQfBcA`H?j@Mx@a@jBe@I[Fm@n@gBg@K^iAz@mA\\}BXeAd@s@@Gn@@hAk@DgASs@nFQzB"], "start": [40.7084, 0.7351]}, {"n": "Fietsroute Peñíscola naar Benicarló", "k": "f", "km": "ca. 5 km", "at": ["Peñíscola"], "start": [40.3653, 0.3948], "d": "Bewegwijzerde fietsroute langs de kust van de oude stad naar Benicarló.", "s": ["iatWobGl@VPPZd@t@t@AF|AxAL@DPb@`@d@RTTFAFP\\Rn@Ir@JXHRLn@H@DNHd@JFADDf@W"]}, {"n": "EuroVelo 8 van El Puig naar Valencia", "k": "f", "km": "ca. 15 km", "at": ["El Puig", "Valencia"], "start": [39.59, -0.3193], "d": "Vlak fietspad tussen de velden door naar de stad. Begint in het dorp El Puig, ca. 3 km van de plek aan zee.", "s": ["k{aWj`FWc@kBs@CJIECCFWy@[]g@MLGCESIBiJiBGBs@EqHb@q@GgD{@mCMIFUKsAMiCqAOAEKwAs@K?EKgAi@K?m@a@IBQOqAc@I@GI{Ae@IDEMgA]I@CGe@QK@CGWKgAWEIi@OUAAG"]}, {"n": "Fietspad naar El Saler", "k": "f", "km": "ca. 6 km", "at": ["Valencia", "Devesa del Saler"], "start": [39.42, -0.3343], "d": "Fietspad van Pinedo naar het zuiden, door het bos van de Devesa naar El Saler en de Albufera.", "s": ["}}_WfmEeDf@cA?SFaC_@AGg@_@u@CS@OHCPkARICs@XsCTs@EkA`@k@G"]}, {"n": "Via Verda vanaf Tortosa", "k": "f", "km": "eerste 15 km, de hele route is bijna 50 km", "at": ["Via Verda vanaf Tortosa", "Tortosa"], "d": "Verharde fiets- en wandelweg over het oude spoor van de Val de Zafán, licht klimmend het binnenland in.", "s": ["s`|W{bIICgCfKQVQF[C}Aa@QWKDuC{ACGHIACONeGcDiDD]FcCfBgHnC_Af@WRaBnBcBf@oCpBE[e@@a@g@Kc@Ai@w@NFXYd@_AqAc@}@YMc@Cm@PWVI@MVa@`@wC~A"], "start": [40.809, 0.5182]}, {"n": "Vía Verde de Ojos Negros naar Navajas", "k": "f", "km": "ca. 10 km van Geldo via Segorbe naar Navajas", "at": ["Segorbe", "Salto de la Novia"], "start": [39.8313, -0.4807], "d": "Het oude ertsspoor van Segorbe naar Navajas en de waterval Salto de la Novia. Ook goed te lopen.", "s": ["u|hWlfH[vA?fAXzBK`BELc@n@uA`EE\\@f@`@pAFd@AXMRm@VgAPQAeAm@KC]F[RYF_D_@WUQc@UQa@DaBGSGa@YQCWJc@r@e@R_@d@gBh@ST"]}];
+
+
+const TYPES={n:"Natuur",k:"Historie en dorpen",c:"Kust en strand",w:"Eten en wijn",f:"Fietsen"};
+const TC={n:"#3d8a4b",k:"#8c5a36",c:"#1f7a9a",w:"#9c2f4b",f:"#2f6fb3"};
+const hue=g=>Math.round(205-g*(195/11));
+const rcol=g=>`hsl(${hue(g)} 55% 42%)`;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const wide=()=>matchMedia('(min-width:860px)').matches;
+const fmt=n=>n.toFixed(2).replace('.',',');
+
+const items=[...V.map((v,i)=>({...v,kind:'v',idx:i})),...P.map((p,i)=>({...p,kind:'p',idx:i})),...SL.map((s,i)=>({...s,kind:'s',idx:i}))];
+items.forEach((it,k)=>it.id=k);
+const sleepFor=name=>items.filter(it=>it.kind==='s'&&it.v.includes(name));
+document.getElementById('nv').textContent=V.length;
+document.getElementById('npoi').textContent=P.length;
+document.getElementById('nsl').textContent=SL.length;
+document.getElementById('nown').textContent=SL.filter(s=>s.own).length+P.filter(p=>p.own).length;
+
+// ---------- kaart
+const map=L.map('map',{zoomControl:true}).setView([40.2,0.4],7);
+const ESRI='https://server.arcgisonline.com/ArcGIS/rest/services/';
+const base={
+  "Kaart":L.tileLayer(ESRI+'World_Topo_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, HERE, Garmin, OpenStreetMap'}),
+  "Satelliet":L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'})
+};
+base["Kaart"].addTo(map);
+const WMT='https://tile.waymarkedtrails.org/';
+const over={
+  "Alle wandelpaden (GR, PR, SL)":L.tileLayer(WMT+'hiking/{z}/{x}/{y}.png',{minZoom:10,maxZoom:18,opacity:.8,attribution:'Paden &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>, OpenStreetMap'}),
+  "Alle fietsroutes (EuroVelo, Via Verde)":L.tileLayer(WMT+'cycling/{z}/{x}/{y}.png',{minZoom:10,maxZoom:18,opacity:.8,attribution:'Fietsroutes &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>, OpenStreetMap'})
+};
+let ovOff={};try{ovOff=JSON.parse(localStorage.getItem('kust-ov')||'{}')}catch(e){}
+Object.entries(over).forEach(([n,l])=>{if(!ovOff[n])l.addTo(map)});
+map.on('overlayadd overlayremove',e=>{ovOff[e.name]=e.type==='overlayremove';try{localStorage.setItem('kust-ov',JSON.stringify(ovOff))}catch(x){}});
+L.control.layers(base,over,{position:'bottomleft'}).addTo(map);
+let tileErr=0;
+base["Kaart"].on('tileerror',()=>{if(++tileErr===6&&map.hasLayer(base["Kaart"])){map.removeLayer(base["Kaart"]);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map)}});
+const START=[41.7870,2.7810];
+L.circleMarker(START,{radius:6,color:'#fff',weight:2,fillColor:'#1f241e',fillOpacity:1}).addTo(map).bindTooltip('Vidreres, vertrek',{direction:'right'});
+const RT=["cdoX{hu@m@@Kv@t@^j@@\\n@@z@C`AKz@QdAK|@@bAJjAHx@_@h@l@Vj@Jp@Pr@Tp@Zn@^f@`@f@h@^j@^t@\\~@V~@XlAX|@\\t@b@j@f@d@`@d@\\x@Rx@Zz@Vr@Jz@FlAJ~ANz@T`Ad@pBTbAHz@@`AEz@QxAK|@C|@Hx@Vr@f@l@j@Zx@l@l@bATt@LhA@rAApA@`AFjAJz@RnAN`AF|@BnA?|@BlAJjARvAj@xBd@nAf@nA\\hAVhALz@N|AHdBF~@Jx@T~@\\r@\\l@Xp@Vv@Rt@Xr@b@v@`@d@l@f@l@`@f@h@^r@Xr@^n@h@l@^l@`@bAZt@b@h@h@b@b@b@`@l@d@fA`@hAVp@Zn@f@t@h@r@^h@Xv@RjAR~@Vr@^n@h@n@^h@Xp@Tt@Nz@J|@H|@J~@Lx@Rv@Zt@`@l@d@l@`@p@Vt@V|@d@`AZn@Tz@HfABbAHbATt@Zn@\\p@ZbANx@H~AFz@Rz@^t@d@f@^p@Xp@f@v@f@b@h@`@d@^f@d@d@n@\\n@^z@X|@VfAPv@TjAR|@Tx@Vr@Xp@d@z@d@r@t@dA^l@Zt@Px@L~@Xt@d@f@n@Tn@Fn@Jh@\\b@n@^lA^t@^h@\\t@ZlAHx@Fz@@hA?|@@z@Hz@Rx@Xv@b@j@d@^f@`@Vp@?nA?dA?~@Iz@Ix@C|@@fAHfANz@^pAd@pAVt@Pt@Nx@RhAP~@Rz@Zl@f@f@h@Tn@Hl@Nl@Zj@h@^l@Zx@R|@Lz@Tt@Zx@\\r@`@l@b@l@\\p@Xr@VbAPt@Tt@Zt@b@~@b@r@b@j@`@h@`@v@Zv@Pt@Lx@NlAFz@N`AT|@Rt@Nx@J~@B~@EfAIbAK|@Gz@Az@F`AP~@Tr@\\n@f@j@h@^h@Zd@d@^l@Zl@^j@f@b@h@Vp@Ph@Zb@n@Px@B`AI~@A|@H|@Rv@Zp@`@p@^f@d@h@f@d@d@^b@d@Lz@Mz@Yp@a@h@e@^o@\\i@Ro@Lo@Hm@Ni@^a@n@Qz@Cz@A|@Mv@Wz@GbADz@P|@Fz@E|@U`ASx@Gz@F~@Nv@Hz@Pv@Zn@^l@Vv@PbAVt@Rt@Lx@J~@Rv@\\fBTz@d@z@b@j@`@~@Zr@l@v@b@p@Xv@L|@B~@@~@J~@Pv@L`AF`AP~@\\t@f@f@j@Xn@Lh@Zd@d@b@j@b@r@\\x@R|@Jz@F~@DdALjAL`ALx@Dz@B|@Hx@Rz@Zp@\\l@B{@a@g@k@PWu@_@m@m@Os@p@g@`A}@vB]l@KA", "eghXsza@d@c@x@qBXq@b@o@h@a@j@Td@r@Nt@j@U`@d@Zn@H~@Xn@d@j@d@^n@Rl@Hj@Nf@Zd@j@\\x@Rt@Tr@^t@b@j@^n@Vr@Lz@B`AFz@Nv@Xt@b@l@j@`@h@Rh@Th@d@b@n@^h@d@`@f@Tn@Hl@?j@Bl@Ph@`@`@d@j@`@l@Rn@Dp@Cr@Dn@Lh@Vf@\\d@f@b@r@Vx@L|@@~@E|@A|@HdANx@L|@@z@G`AQv@Sr@O|@C|@DjAP~ANv@Nv@Tx@\\`AZp@d@n@h@^f@Zh@j@\\p@Rv@Lv@Vt@b@r@d@h@\\j@Vt@Lx@L|@Tx@Xp@`@j@h@b@l@Xl@\\b@d@\\n@Rt@Jv@F|@Pv@d@fA^p@ZjARdAh@|AZn@b@l@f@f@b@l@Zv@Nz@P|@Zr@d@h@l@Xv@Fp@Fj@Vj@b@t@h@l@Rn@Rl@b@f@`@j@RhA@p@@p@Ll@Tf@Zj@h@^l@b@t@d@f@z@d@n@Ln@Hl@Tl@Xl@Ph@Xd@d@^p@Rz@N|@Vx@\\l@l@l@h@r@Zz@\\n@p@v@Zl@VnAB~@EbABfAFz@?hBDz@B~@G`AOhA?bAJ|@Vv@`@j@h@^`A\\d@\\h@~@V~@\\r@^n@Tz@H`AHz@VhAPz@Dz@Ez@l@Gn@[p@@l@An@Sn@Aj@\\FcAl@?n@Ap@RC~@Gz@BJ", "qmbXubZGx@Mx@LjAc@b@Sv@AfAEx@DdA?bAAz@Hx@L|@?x@?z@X~@P|@JhA?|@O`A_@r@u@f@e@f@Yr@M`AMx@Wr@[p@SbAG~@B|@Jv@Tt@^z@\\t@^l@f@d@h@ZtAf@h@Xd@h@b@`A`@n@h@j@b@dBDz@G~@Bz@C~@ObAKv@[r@Qt@Gz@OrAIz@A|@D~@CfAQ`AUhAK|@@|@Xp@^h@h@t@Xt@D|@ShA[tAQv@Qz@Ez@D~@Jx@\\r@l@t@f@n@`@f@b@d@dAVp@Jv@Jt@Jn@Ph@\\b@f@Vp@D~@O|@_@j@_@j@Qx@B`APt@Tv@X~@\\hA\\hA\\lA\\pAVz@v@rCRx@bBdGTx@P|@D`AG~@MfAMxAGbAGzA?bABz@F~@LlATpA^tAv@xCTt@Xn@`@l@b@b@t@j@h@l@^v@Rt@^pBRt@Zp@d@d@l@h@^h@Zl@n@lAb@dA`@bA\\|@^r@^p@b@z@Vv@P`ALx@P`AVz@Vp@\\l@f@z@d@n@r@~@d@f@|@|@r@h@d@^p@`@t@b@dAj@l@b@d@`@z@v@j@h@\\l@`@x@p@h@f@^d@l@\\~@Nz@Xv@b@h@h@Vf@b@l@x@l@j@t@`@l@d@pAvBj@j@v@Zp@`@v@~@p@b@h@\\d@j@b@`@`@p@f@d@Zn@j@d@h@V`@n@j@h@f@\\f@v@\\x@\\n@d@p@n@l@f@d@l@~@^l@Ly@G{@@cA^q@r@CMjAn@f@Xm@", "g`~WsdOVp@U|@`@x@f@f@l@r@l@Np@l@b@b@j@j@f@d@j@h@f@d@`@d@X|@l@Pf@Zr@n@f@b@b@f@n@z@`@j@`@f@n@v@b@j@h@r@f@r@n@z@bAlAl@p@p@`Af@`AZn@b@x@`@h@h@f@t@b@x@\\j@\\j@h@j@x@`@z@^r@f@|@b@n@h@~@b@dAf@vA^~@ZfAPv@Dx@h@s@Sw@j@Nh@X?f@", "u_|WcvL]j@E{@m@ZRt@d@r@j@z@d@lATfAHbALlAPt@Z|@\\p@n@v@b@f@d@h@p@~@h@|@p@rAf@|@l@`Ab@j@`@j@f@l@|@`Ap@t@~@nAf@z@^r@`@bAXz@Vz@XdANz@@|@Zv@Nv@i@fDYt@}@x@e@b@Sv@F~@?~@Qv@?rAA~@Ov@e@lAUt@Y|@Ur@Kx@AlAIx@g@d@g@l@}@|@g@j@[j@_@l@k@\\i@VsA`@k@Nq@@uAFq@Cu@@m@Bm@Ck@\\m@D[B", "we|W}bIb@d@Mx@f@Zl@Vz@j@h@d@d@b@d@d@h@\\h@\\j@^j@Tj@Pp@Dh@]^s@b@i@h@Wh@c@b@e@`@g@H{@E{@J{@?{@JcA\\s@j@g@h@Ul@Sn@Wh@Sh@Yh@a@d@c@`@m@`@u@Zq@\\qAR{@T{@Ty@v@y@f@_@f@a@j@[l@Yj@Wj@Op@Sl@C`@n@`@j@f@h@j@Vp@Et@Wh@Un@Ar@\\n@@p@Wd@e@T{@R{@R}@?y@d@m@p@G~@MfAIl@EpAGx@@`ALt@Dl@MbAJl@Sp@w@t@e@x@Sv@Sl@OnA[l@J^k@C}@My@Q}@S}@e@oAa@{@k@qAa@iA]_AY}@Ys@u@sAcByCa@}@]k@]w@[y@o@f@]q@e@uAbAmAnAWl@Mj@i@P{@RkAj@g@EM", "_cyWceL_@h@Ux@Mx@KdAs@DoAXyBf@v@`CVr@n@g@\\l@Zt@d@x@\\t@bBzCh@`A\\p@ZfAVp@p@hBj@pA`@z@Xn@XhARx@N|@D|@Wv@p@FdBlBr@x@`@d@p@f@lAr@f@\\f@`@f@f@h@f@l@Ln@@p@?n@Hd@f@`@j@l@~@d@p@f@`@n@\\`Ah@l@Zp@^h@X|@Ll@?j@Lj@j@d@f@b@v@Zl@n@f@r@T|@v@^h@Zt@Xr@h@pAZx@Xr@Zv@Xr@d@`@p@Fr@Bn@Dz@Dj@Bl@Dn@Fl@Fp@Fl@Jh@Xf@j@Vp@Vz@b@rAf@fAt@|A~@lBh@fAt@zA\\n@d@v@^f@h@j@bB|AjAdAh@b@h@\\p@^h@Xn@\\n@`@z@l@bBhAz@p@d@^v@t@|@x@x@`AhAzAf@n@h@h@~@r@pA`Af@d@`@d@b@n@d@z@f@dA^p@f@t@l@r@j@f@h@\\`B`Al@d@b@f@r@x@`@h@b@`A^p@f@nAV|@Tv@Zo@a@g@Uu@L}@ZgAV}@r@w@d@c@bAaAn@m@h@g@b@_@l@Up@[v@]n@[h@a@HM", "uksWevFe@`@i@\\i@Vs@\\k@Pi@To@n@c@b@cA`Ai@d@q@p@c@l@g@hBSx@Fz@d@`@Wt@\\v@`@r@\\r@b@|@vAtB~@pAp@`Ar@`A`@d@x@~@lAxB\\r@^hAX|@d@xAP|@Xv@f@b@b@f@`@lAd@|@v@zA\\tAd@dAVr@T|@Rv@lAjB|@vAd@r@rEhH`@h@lA|@h@\\n@Pv@T|@VlA\\n@Rn@Pn@FtANz@Hv@Hn@Ch@Ur@{@f@s@`@mARy@f@i@p@Fr@c@v@Sl@M~@Oj@Ql@Oh@Sd@c@HaAP_ARkANsAPqAL{@`@s@r@Ah@Sh@V", "ozpWqiDa@h@o@Ki@_@i@d@O`AKz@WpBQbASdAEx@AfARfARz@J|@`@f@Pt@rAbBh@h@h@Zh@f@l@n@z@jAd@fAZ`A`@j@TlAL`ATr@\\dAd@x@`@n@f@r@t@f@h@Rr@VpBn@|Ad@hA\\l@R|CbAp@Lx@PnAXpAXn@Nj@Np@Tr@Xh@Vn@\\n@Zn@X|Aj@v@Zr@XbA`@j@Tj@Rv@^f@^EaAHoAN}@Nw@m@KFy@", "_vnWucBCz@RjAKjAG`AI~@~@@l@Rr@Tl@Lx@VbAZr@Rn@Tl@NfATj@Tz@b@h@`@^j@n@t@b@d@x@z@f@j@hApAl@n@h@Zj@Vl@XZt@Tt@b@n@h@Xl@R`@p@Vp@T~@[lAKJ", "kkmW}s@Lv@DbABz@Bx@B|@Mz@e@c@Zp@Zt@X`A\\n@f@f@f@`@n@zAb@dAXr@`@~@^~@\\v@`@z@Xp@Xv@TbAP|@N~@Lz@P~@PhAP~@N`ATbAZhAX`AHx@Ix@Y|@[bAUv@GfAR|@`BrBl@p@f@h@f@f@j@v@vA~AfAhCRx@Lz@R`AJ|@?z@@`Ag@`Ac@l@_CnBa@j@eAOmAYuA]k@So@s@_@q@e@w@]o@]aASs@A_AEy@[o@g@[u@a@k@i@uBuCqAiBaAuAm@m@cHgGkB_Bg@e@s@wAU_Aa@q@o@g@o@gA_@{@yDeCm@a@i@d@eAfBa@p@Qv@]p@k@ZQx@]n@M|@C~@TnC?jALfAJbAf@hAZp@N`AYr@OF", "eqnWv]?z@[mDIoBIcAQgAAiAO}BIaAF{@`@oAPy@n@a@^k@P{@b@u@`AcBd@_@x@X~CjBt@pAb@|@r@j@b@j@Tx@b@dAb@n@pBhBhFnE~AvAx@bAb@n@pAhBxAnBd@n@hAv@h@X`@h@J~@?~@T`A\\~@d@x@^n@\\n@`@h@z@\\rA\\|@Rj@Nl@XVp@Rv@Z~DNv@d@x@hAh@r@TpAd@dBl@h@Pl@Tn@f@T`AT`BLx@P~@`@`Ah@hAxAnB~@j@dF~Dh@l@Vp@RbA\\~@h@z@f@d@h@Zv@b@h@Xl@r@f@b@r@Ht@Gl@Jr@Vn@Vj@b@h@f@n@HvDIp@@rAJrAJl@Dl@Fl@B|@ShCaAt@Yl@Wn@a@j@o@d@y@^eAx@wC`@m@t@In@?n@PjAf@jAf@n@Zf@\\Vs@n@{@j@m@h@m@l@m@j@Q|@F|@HlBPn@Dj@Lp@Br@d@dAr@|@n@h@^p@d@p@d@jAx@|B|Aj@`@j@v@l@x@F_AA}@M_ARw@f@gBhAeDr@oB`@oAVs@Yq@QS", "owgWx~AZt@Ax@Wr@cAtCiAdD[|@Sx@]t@Tt@Jx@Qx@_ATo@x@e@b@Wz@B~@@|@_@z@]n@aAn@e@n@Qv@r@^d@f@L~@QvBI|@C~@@z@L`ARt@Xp@\\v@l@tBZl@VpAdA`HN~@A|@i@`AWr@FxA?hA@|@p@pCXbATp@v@fC^bA\\dAr@vB`@jAVv@Hz@Qx@sAbAa@j@Gx@@jAA~@Kx@}@dAe@b@a@n@Iz@J`ABbA?|@Mz@m@Ts@Ac@h@c@d@o@f@k@d@Yr@QhCI|@]t@o@Zi@V_@t@MdAW|@u@^i@Zq@~@Yt@Qz@i@bAa@n@[v@Yv@m@nAwAzC_@x@c@f@m@Ti@XaBzCWp@m@Dk@ROP", "qhiWzmHp@[j@LV}@|AqCj@k@z@_@j@UXkAz@oBl@eAZs@Xw@\\y@l@eA^u@N{@f@aAj@s@r@Wf@c@ReAN_A`@m@t@[j@g@TaARyCRw@b@c@|@s@l@]vAi@`A[r@UvCaAn@En@Pl@Fj@[^u@h@_AzAcB`AiAr@y@h@g@r@Sx@D`BbAj@Rr@Gj@[lBgA`AMp@Ud@k@Pw@@y@H_A\\i@l@a@`A[n@c@h@e@d@a@f@g@z@wB`@i@|@i@j@]b@g@\\aA`BuAj@e@Vq@ZsAJ{@F}@CaAAy@CeAH}@v@cA`@o@Vw@`@i@f@k@l@Ur@Xj@Tl@PhCn@l@Vl@j@f@d@r@d@f@r@fAx@h@^h@Xj@Mj@a@x@k@v@UnAE~@EfEOvBGhABv@DTr@Py@J_AToAPy@V{@P{@dAF\\e@", "k~cWjkDcABq@jASx@WfAOv@Mx@G~@j@Sl@BxEVvBL`DPt@DvAHn@Jh@XzDbD|@j@nAt@~ChBh@Xn@Np@Xn@`@j@Zr@Rp@Dr@Al@?p@Rd@j@Zr@b@dAZp@dAlBj@`A`@r@p@jAh@`@h@Zh@Pr@Vd@\\NpAj@Ol@]l@Qj@]l@e@j@e@^u@f@e@v@{@^s@j@}@d@k@l@Yl@EjA\\v@Xj@YhALr@Jl@Kn@II{@Je@", "w{`WjpEK|@lDk@j@Rj@c@l@Gn@Kx@Ql@Ol@St@Ij@PjABn@Hp@Ez@Ip@Kp@MlCi@dAQp@OfB_@jAWl@On@QlAm@l@WvA_AfAu@~@Up@Mt@]j@[h@[r@g@p@{@^i@l@?l@UVq@`@i@f@a@h@Yj@Wt@_@`Ac@z@c@n@[x@a@p@[j@Ol@@f@[fAe@j@]hAe@n@Sj@Mt@Wf@e@v@[h@w@n@Nj@Nn@Ej@Mt@GhASx@_@h@_@j@Qp@[n@Bl@]h@_@d@c@h@a@j@Yf@_@d@]n@Wf@]r@e@f@_@l@TRr@Xp@l@Lj@Zj@h@j@l@l@Vj@X`@n@j@Tn@Fp@Bd@d@l@Qh@[r@Yh@_@BcAB{@BkAB}@hAKYI", "my{VbvCo@RE~@?z@d@\\z@n@k@rCc@bAb@h@n@b@h@\\d@^l@^^f@p@Ot@M~@Qn@El@Bj@Ll@Pj@Np@Ll@Fr@Bx@?r@Ep@Uh@g@j@}@r@eA|BoCnAyAt@_Ah@[r@Ih@STu@h@Uz@Ul@Bn@Ot@Yh@Sn@Wj@Ub@c@b@c@n@Uh@Sp@c@r@St@Mh@Yv@_@hAk@bAe@n@[n@K[{@e@_@i@Rm@k@c@o@Y}@Ky@C}@Kw@FC", "qryVl{BBz@Az@n@a@f@a@f@c@n@i@n@i@f@a@d@_@r@m@p@i@r@m@f@a@j@g@Cg@", "wayVnoBr@?h@g@b@a@j@i@j@c@l@a@h@a@n@c@l@Kn@Fx@HXq@Xo@v@Fp@Vr@Of@a@j@Jj@Nj@`@d@`@^h@d@`@`@b@f@d@j@Vh@Zl@Vl@Vn@Rj@Lj@Kb@e@j@Kn@Ll@\\h@Zt@\\n@Xh@Th@Vt@Xl@h@l@`@j@Nl@v@b@j@j@n@d@j@\\n@f@d@j@Ll@An@MlALj@P|@D|@L@z@a@C", "uqvVbcCh@]k@a@_AMeAOu@Kq@Dm@Jm@Cg@_@c@q@e@k@m@s@_@g@q@_Aw@Yi@Ya@g@_@m@Yu@B{@f@Yh@a@l@Kd@]Vu@Iy@@{@H}@Dy@C}@Uw@GcAC{@Iy@B_APaAIy@@{@Qy@u@cA^s@Ry@BiAN{@k@oAu@oA]o@?}@G}@Dy@Xq@f@i@`@g@b@c@Xu@RG", "ubwV`s@A~@Hx@`@f@Vp@d@l@h@^`@d@d@a@F}@d@eA^}@x@kBh@mA`@}@Xq@`@}@Xq@dA_Cj@sAZq@Xq@`@}@\\w@`@aAXq@Zs@`@_Ab@aAb@cAZq@^m@BeARkAP_APw@n@q@r@s@b@c@v@y@b@_@Zo@Fy@Ly@Us@@y@^u@\\s@H}@J{@C{@E{@OeAW_AG_AKiAG}@FcAFoA@{@?qA@{@J{@Ru@T{@`@_AT_AL}@JaAB}@ReAR_AOu@]s@c@_AL}@f@[`@i@f@[f@e@^s@Xs@Tu@Ts@J}@Rs@J{@Xs@Jy@Vq@Ru@LaALU", "ihuVg}AWt@M|@Ut@Qv@Wp@Mz@l@Uh@Uv@g@n@e@Zo@Vq@Vu@Ez@j@MXs@^q@f@]f@k@l@Qj@k@`@i@h@P`@f@l@Md@a@Xu@\\k@Zs@D{@Hy@f@e@Ts@r@q@pAo@p@[l@[t@]z@c@f@Un@[b@m@Nu@NaADaAk@Nm@EMI", "qctVe}Bn@Nj@QFz@Ov@Ox@Ox@Wv@`@f@|@Fh@Zd@b@Xt@Rt@`@p@V~@^p@j@d@d@^^j@Rv@Zp@`@f@Rt@t@Pn@h@h@z@Rt@G`ADx@Hx@Vr@Hz@Iz@Qv@Gx@Mz@h@VDz@?x@NdAGtAEbAQ|Ac@l@V|@Px@J`APx@F`AF`AJ|@XfA@~@L~@b@`ARt@HtBDhALx@l@p@f@`@l@No@j@g@f@k@^o@b@i@Tk@Vc@`@Ix@H|@U~@Qv@Ox@O|@[t@S|@QjAc@l@_@v@Wr@Yt@i@j@A@"];
+const dec=p=>{let i=0,la=0,lo=0;const o=[];while(i<p.length){for(let k=0;k<2;k++){let b,sh=0,r=0;do{b=p.charCodeAt(i++)-63;r|=(b&31)<<sh;sh+=5}while(b>=32);const v=(r&1)?~(r>>1):(r>>1);if(k===0)la+=v;else lo+=v}o.push([la/1e4,lo/1e4])}return o};
+RT.forEach((p,i)=>{const g=V[i].g;L.polyline(dec(p),{color:rcol(g),weight:i===0||V[i].opt?3:4,opacity:.85,dashArray:V[i].opt?'7 6':null,interactive:false}).addTo(map)});
+const TRC={w:'#6b3d14',f:'#6a3fa0'};
+TR.forEach((t,i)=>{
+  const segs=t.s.map(dec);t.bounds=L.latLngBounds(segs.flat());
+  const start=t.start||segs[0][0];
+  const html=`<div class="trtip">${esc(t.n)}</div><div>${t.k==='w'?'Wandelen':'Fietsen'} · ${esc(t.km)}</div><p style="margin:.4em 0">${esc(t.d)}</p><a href="https://www.google.com/maps/dir/?api=1&destination=${start[0]},${start[1]}" target="_blank" rel="noopener">Navigeer naar het begin</a>`;
+  t.layer=L.layerGroup(segs.map(sg=>[L.polyline(sg,{color:'#fff',weight:8,opacity:.75,interactive:false}),L.polyline(sg,{color:TRC[t.k],weight:4,opacity:.95,dashArray:t.k==='w'?'8 6':null})]).flat());
+  t.layer.eachLayer(l=>{if(l.options.interactive!==false){l.bindTooltip(esc(t.n),{sticky:true});l.bindPopup(html,{maxWidth:260})}});
+  t.layer.addTo(map);
+  t.startMk=L.circleMarker(start,{radius:5,color:'#fff',weight:2,fillColor:TRC[t.k],fillOpacity:1}).bindTooltip('Begin: '+esc(t.n)).bindPopup(html,{maxWidth:260}).addTo(map);
+});
+function showTrail(i){const t=TR[i];if(!wide())window.scrollTo({top:0,behavior:'smooth'});
+  map.flyToBounds(t.bounds,{padding:[40,40],duration:.9,maxZoom:15});
+  setTimeout(()=>{t.layer.eachLayer(l=>{if(l.options.interactive!==false){l.setStyle({weight:7});setTimeout(()=>l.setStyle({weight:4}),1800)}})},1000)}
+let pendingTr=null;
+document.addEventListener('click',e=>{const b=e.target.closest('.more-b');if(!b)return;e.stopPropagation();const m=b.closest('.cb').querySelector('.meer');m.hidden=!m.hidden;b.setAttribute('aria-expanded',String(!m.hidden));b.textContent=m.hidden?'Lees meer':'Minder'},true);
+document.addEventListener('click',e=>{const b=e.target.closest('[data-tr]');if(!b)return;e.stopPropagation();if(!page.hidden){pendingTr=+b.dataset.tr;location.hash='#kaart'}else showTrail(+b.dataset.tr)},true);
+items.forEach(it=>{
+  const isV=it.kind==='v', c=isV?rcol(it.g):it.kind==='s'?(it.e?'#c0601c':'#1d3a56'):TC[it.t], s=isV?22:it.kind==='s'?17:13;
+  const cls='mk '+it.kind+(it.kind==='s'?(it.e?' e':'')+(it.own?' own':'')+(it.warn?' warn':''):'');
+  const inner=isV?String(it.idx+1):'';
+  it.marker=L.marker([it.lat,it.lon],{icon:L.divIcon({className:'',html:`<span class="${cls}" style="--c:${c}">${inner}</span>`,iconSize:[s,s]}),zIndexOffset:isV?500:it.kind==='s'?300:0,title:it.n}).addTo(map);
+  it.marker.bindTooltip(esc(it.n),{permanent:true,direction:'right',offset:[8,0],className:'lbl '+(isV?'v':'p')});
+  it.marker.on('click',()=>select(it.id,'map'));
+});
+const allBounds=L.latLngBounds([START,...V.map(v=>[v.lat,v.lon])]);
+const fitAll=()=>map.fitBounds(allBounds,{padding:[30,30]});
+fitAll();
+document.getElementById('all').onclick=fitAll;
+const leg=document.getElementById('legend'),lt=document.getElementById('legtog');
+lt.onclick=()=>{leg.classList.toggle('min');lt.textContent=leg.classList.contains('min')?'Legenda tonen':'Legenda verbergen'};
+if(!wide()){leg.classList.add('min');lt.textContent='Legenda tonen'}
+const zoomCls=()=>{const z=map.getZoom(),el=map.getContainer();el.classList.toggle('zv',z>=8);el.classList.toggle('zp',z>=12)};
+map.on('zoomend',zoomCls);zoomCls();
+addEventListener('resize',()=>map.invalidateSize());
+let mapReady=false;
+
+// ---------- Wikipedia: foto
+const wcache={};try{Object.assign(wcache,JSON.parse(localStorage.getItem('kust-wiki1')||'{}'))}catch(e){}
+const API='https://es.wikipedia.org/w/api.php?format=json&origin=*&action=query&prop=pageimages|info&piprop=thumbnail&pithumbsize=1000&inprop=url&redirects=1';
+const pick=j=>{const pg=j&&j.query&&j.query.pages;if(!pg)return null;const p=Object.values(pg).sort((a,b)=>(a.index||0)-(b.index||0))[0];
+  if(!p||p.missing!==undefined)return null;return {url:p.fullurl,img:p.thumbnail&&p.thumbnail.source}};
+async function wiki(term){
+  if(wcache[term])return wcache[term];
+  try{let r=pick(await (await fetch(API+'&titles='+encodeURIComponent(term))).json());
+    if(!r)r=pick(await (await fetch(API+'&generator=search&gsrlimit=1&gsrsearch='+encodeURIComponent(term))).json());
+    if(r){wcache[term]=r;try{localStorage.setItem('kust-wiki1',JSON.stringify(wcache))}catch(e){}}return r}catch(e){return null}
+}
+const io=('IntersectionObserver' in window)?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){io.unobserve(e.target);loadWiki(e.target)}}),{rootMargin:'400px'}):null;
+function loadWiki(card){const it=items[+card.dataset.id];
+  wiki(it.w||it.n).then(r=>{const ph=card.querySelector('.ph');if(!ph)return;if(!r){ph.classList.add('none');return}
+    const img=ph.querySelector('img');
+    if(r.img){img.onload=()=>img.classList.add('ok');img.onerror=()=>ph.classList.add('none');img.alt=it.n;img.src=r.img}else ph.classList.add('none');
+    const ln=card.querySelector('.wl');if(ln&&r.url){ln.href=r.url;ln.hidden=false}})}
+
+// ---------- kaarten
+const trFor=name=>TR.map((t,i)=>({t,i})).filter(x=>[].concat(x.t.at).includes(name));
+const trBtns=name=>trFor(name).map(({t,i})=>`<button type="button" class="onpath" data-tr="${i}"><span class="ln ${t.k}"></span>${t.k==='w'?'Toon het wandelpad':'Toon de fietsroute'}${trFor(name).length>1?': '+esc(t.short||t.n):''}</button>`).join('');
+function cardHTML(it){
+  const nav=`<a class="lnk main" href="https://www.google.com/maps/dir/?api=1&destination=${it.lat},${it.lon}" target="_blank" rel="noopener">Navigeer erheen</a>`;
+  if(it.kind==='s'){
+    const f=[];
+    f.push(it.e?`<span class="flag pd">Met stroom</span>`:`<span class="flag fr">Gratis</span>`);
+    f.push(it.pid?`<span class="flag type" style="--c:#1d3a56"><span class="score">★ ${fmt(it.score)}</span> · ${it.rev} reviews</span>`:`<span class="flag">Niet op Park4Night</span>`);
+    if(it.own)f.push(`<span class="flag own">Uit jouw Google Maps · ${esc(it.own)}</span>`);
+    if(it.top)f.push('<span class="flag warn">Aanrader</span>');
+    if(it.warn)f.push('<span class="flag bad">Afgeraden</span>');
+    if(it.wine)f.push(`<span class="flag type" style="--c:${TC.w}">Wijnproeverij</span>`);
+    if(it.bike)f.push(`<span class="flag type" style="--c:#6a3fa0">Fietsen</span>`);
+    const kv=`<dl class="kv"><dt>Prijs</dt><dd>${esc(it.price)}</dd><dt>7 meter</dt><dd>${esc(it.len)}</dd><dt>4G</dt><dd>${esc(it.net)}</dd>${it.bike?`<dt>Fietsen</dt><dd>${esc(it.bike)}</dd>`:''}</dl>`;
+    const p4=it.pid?`<a class="lnk" href="https://park4night.com/nl/place/${it.pid}" target="_blank" rel="noopener">Bekijk op Park4Night</a>`:`<a class="lnk" href="https://www.google.com/maps/search/?api=1&query=${it.lat},${it.lon}" target="_blank" rel="noopener">Bekijk in Google Maps</a>`;
+    return `<div class="cb"><div class="ct"><h3>${esc(it.n)}</h3></div><div class="flags">${f.join('')}</div>${kv}<p>${esc(it.d)}</p><p style="font-size:.82rem;color:var(--muted)">Slaapplek voor: ${it.v.map(esc).join(', ')}</p><div class="links">${nav}${p4}</div></div>`;
+  }
+  const ph=`<div class="ph"><img alt="" loading="lazy"><span class="cr">Wikipedia</span></div>`;
+  const M=MEER[it.n];
+  const wl=M?`<button type="button" class="lnk more-b" aria-expanded="false">Lees meer</button>`:`<a class="lnk wl" href="#" target="_blank" rel="noopener" hidden>Wikipedia</a>`;
+  const mb=M?`<div class="meer" hidden>${M.map(p=>`<p>${esc(p)}</p>`).join('')}<a class="wl wlink" href="#" target="_blank" rel="noopener" hidden>Nog meer lezen op Wikipedia →</a></div>`:'';
+  const maps=`<a class="lnk main" href="https://www.google.com/maps/search/?api=1&query=${it.lat},${it.lon}" target="_blank" rel="noopener">Open in Maps</a>`;
+  if(it.kind==='v'){
+    const fl=`<div class="flags">${it.opt?'<span class="flag warn">Optioneel</span>':''}<span class="flag">${esc(it.dep)}</span></div>`;
+    const drive=`<p class="drive">Vanaf ${esc(it.from)}: ${it.km} km, ca. ${it.min} min rijden</p>`;
+    const sl=sleepFor(it.n);
+    const sline=sl.length?`<div class="sleepline">${sl.map(s=>`<span style="display:flex;gap:6px;align-items:center"><span class="ps${s.e?' e':''}${s.own?' o':''}">${s.e?'€':'P'}</span><button type="button" data-sid="${s.id}">${esc(s.n)}</button>${s.pid?` ★ ${s.score.toFixed(1).replace('.',',')}`:''}${s.warn?' · afgeraden':''}</span>`).join('')}</div>`:'';
+    return `${ph}<div class="cb"><div class="ct"><h3>${esc(it.n)}</h3><span class="nr">plaats ${it.idx+1} van ${V.length}</span></div>${fl}${drive}<p>${esc(it.d)}</p>${it.doen?`<div class="doen"><b>Wat je er doet</b>${esc(it.doen)}</div>`:''}${it.fiets?`<div class="fiets"><b>Fietsen</b>${esc(it.fiets)}</div>`:''}${sline}${it.pn?`<p class="drive"><span class="ps e" style="display:inline-grid;margin-right:6px">€</span>${esc(it.pn)}</p>`:''}<div class="links">${maps}${wl}${trBtns(it.n)}</div>${mb}</div>`;
+  }
+  const f=[`<span class="flag type" style="--c:${TC[it.t]}">${TYPES[it.t]}</span>`];
+  if(it.top)f.push('<span class="flag warn">★ Niet missen</span>');
+  if(it.own)f.push(`<span class="flag own">Uit jouw Google Maps · ${esc(it.own)}</span>`);
+  f.push(`<span class="flag">${it.dog===1?'Hond mag mee':it.dog===0?'Hond mag niet mee':'Hond: navragen'}</span>`);
+  return `${ph}<div class="cb"><div class="ct"><h3>${esc(it.n)}</h3></div><div class="flags">${f.join('')}</div><p>${esc(it.d)}</p><div class="links">${maps}${wl}${trBtns(it.n)}</div>${mb}</div>`;
+}
+const regionsBox=document.getElementById('regions'), jump=document.getElementById('jump');
+GROUPS.forEach((G,g)=>{
+  const vs=items.filter(it=>it.kind==='v'&&it.g===g), ps=items.filter(it=>it.kind==='p'&&it.g===g).sort((a,b)=>(b.top||0)-(a.top||0));
+  const ss=items.filter(it=>it.kind==='s'&&it.g===g).sort((a,b)=>(a.e||0)-(b.e||0)||(a.warn||0)-(b.warn||0)||(b.top||0)-(a.top||0));
+  const sec=document.createElement('section');sec.className='region';sec.id='r'+g;sec.style.setProperty('--c',rcol(g));
+  sec.innerHTML=`<div class="rhead"><span class="rnum">${g+1}</span><div><h2>${esc(G.t)}</h2><div class="sub">${esc(G.sub)} · ${vs.length} ${vs.length===1?'plaats':'plaatsen'} · ${ss.length} slaapplekken · ${ps.length} tips</div></div></div><p class="rtip">${esc(G.tip)}</p><a class="more" href="#regio-${g+1}">Meer over deze regio →</a><p class="label">Plaatsen</p>`;
+  const add=it=>{const c=document.createElement('article');c.className='card'+(it.kind==='p'?' compact':it.kind==='s'?' sleep'+(it.e?' e':''):'');c.tabIndex=0;c.dataset.id=it.id;c.innerHTML=cardHTML(it);
+    c.addEventListener('click',e=>{if(e.target.closest('a,[data-tr]'))return;const sb=e.target.closest('[data-sid]');if(sb){select(+sb.dataset.sid,'link');return}select(it.id,'guide')});
+    c.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.target.closest('a,button'))select(it.id,'guide')});
+    it.card=c;sec.appendChild(c);if(it.kind!=='s'){if(io)io.observe(c);else loadWiki(c)}};
+  vs.forEach(add);
+  if(ss.length){const ls=document.createElement('p');ls.className='label';ls.textContent='Slapen';sec.appendChild(ls);ss.forEach(add)}
+  if(ps.length){const lp=document.createElement('p');lp.className='label';lp.textContent='Te doen en te zien';sec.appendChild(lp);ps.forEach(add)}
+  regionsBox.appendChild(sec);
+  const b=document.createElement('button');b.type='button';b.className='jb';b.style.setProperty('--c',rcol(g));b.innerHTML=`<i>${g+1}</i>${esc(G.t)}`;
+  b.onclick=()=>{goRegion(g);sec.scrollIntoView({behavior:'smooth',block:'start'})};jump.appendChild(b);
+  const ov=document.createElement('a');ov.className='ov-row';ov.href=`#regio-${g+1}`;ov.style.setProperty('--c',rcol(g));
+  ov.innerHTML=`<span class="ov-n">${g+1}</span><span class="ov-t"><b>${esc(G.t)}</b><small>${esc(G.sub)} · ${ss.length} slaapplekken · ${ps.length} tips</small></span><span class="ov-go" aria-hidden="true">→</span>`;
+  document.getElementById('ov').appendChild(ov);
+});
+function goRegion(g){const pts=items.filter(it=>it.g===g&&it.marker&&map.hasLayer(it.marker)).map(i=>[i.lat,i.lon]);if(pts.length)map.flyToBounds(L.latLngBounds(pts),{padding:[40,40],duration:.8,maxZoom:12})}
+
+// ---------- filters en zoeken
+let active={n:1,k:1,c:1,w:1,f:1,sf:1,se:1}, onlyTop=false, onlyOwn=false, onlyBike=false, query='';
+try{const s=JSON.parse(localStorage.getItem('kust-f1')||'null');if(s){active=Object.assign(active,s.active||{});onlyTop=!!s.onlyTop;onlyOwn=!!s.onlyOwn;onlyBike=!!s.onlyBike}}catch(e){}
+const visible=it=>{const q=!query||(it.n+' '+(it.dep||'')+' '+(it.v||[]).join(' ')).toLowerCase().includes(query);
+  if(it.kind==='v')return q;
+  if(onlyOwn&&!it.own)return false;
+  if(onlyBike&&!(it.bike||it.t==='f'||trFor(it.n).some(x=>x.t.k==='f')))return false;
+  if(it.kind==='s')return q&&(it.e?active.se:active.sf)&&(!onlyTop||it.top);
+  return q&&active[it.t]&&(!onlyTop||it.top)};
+const fbox=document.getElementById('filters'), ft=document.getElementById('ft');
+ft.onclick=()=>{fbox.hidden=!fbox.hidden;ft.setAttribute('aria-expanded',String(!fbox.hidden))};
+function fbtn(html,on,fn){const b=document.createElement('button');b.type='button';b.className='fbtn';b.setAttribute('aria-pressed',on?'true':'false');b.innerHTML=html;b.onclick=fn;fbox.appendChild(b)}
+function renderFilters(){fbox.innerHTML='';
+  fbtn('<span class="ps">P</span>Gratis plekken',active.sf,()=>{active.sf=active.sf?0:1;applyFilters()});
+  fbtn('<span class="ps e">€</span>Met stroom',active.se,()=>{active.se=active.se?0:1;applyFilters()});
+  Object.entries(TYPES).forEach(([t,n])=>fbtn(`<span class="sw" style="--c:${TC[t]}"></span>${n}`,active[t],()=>{active[t]=active[t]?0:1;applyFilters()}));
+  fbtn('<span class="ps o">P</span>Alleen uit mijn Google Maps',onlyOwn,()=>{onlyOwn=!onlyOwn;applyFilters()});
+  fbtn('<span class="ln f"></span>Alleen waar je goed fietst',onlyBike,()=>{onlyBike=!onlyBike;applyFilters()});
+  fbtn('<span style="color:var(--star)">★</span>Alleen aanraders',onlyTop,()=>{onlyTop=!onlyTop;applyFilters()});
+  const off=Object.values(active).filter(v=>!v).length+(onlyTop?1:0)+(onlyOwn?1:0)+(onlyBike?1:0);ft.textContent=off?`Filter (${off})`:'Filter'}
+function applyFilters(){
+  try{localStorage.setItem('kust-f1',JSON.stringify({active,onlyTop,onlyOwn,onlyBike}))}catch(e){}
+  items.forEach(it=>{const v=visible(it);it.card.hidden=!v;
+    if(v&&!map.hasLayer(it.marker))it.marker.addTo(map);if(!v&&map.hasLayer(it.marker)&&it.id!==selId)map.removeLayer(it.marker)});
+  document.querySelectorAll('.region').forEach(s=>{s.hidden=![...s.querySelectorAll('.card')].some(c=>!c.hidden)});
+  renderFilters();
+}
+document.getElementById('q').addEventListener('input',e=>{query=e.target.value.trim().toLowerCase();applyFilters()});
+
+// ---------- selecteren
+let selId=null;
+function select(id,from){
+  const prev=items[selId];
+  if(prev){prev.marker.getElement()?.firstChild.classList.remove('sel');prev.marker.getTooltip()?.getElement()?.classList.remove('on');prev.card.classList.remove('on');prev.marker.setZIndexOffset(prev.kind==='v'?500:prev.kind==='s'?300:0)}
+  selId=id;const it=items[id];
+  if(it.card.hidden){query='';document.getElementById('q').value='';if(it.kind==='s'){active.sf=1;active.se=1}else if(it.t)active[it.t]=1;onlyTop=false;onlyOwn=false;onlyBike=false;applyFilters()}
+  if(!map.hasLayer(it.marker))it.marker.addTo(map);
+  if(from==='map')map.panTo([it.lat,it.lon]);else map.flyTo([it.lat,it.lon],Math.max(map.getZoom(),13),{duration:.9});
+  const mark=()=>{const e=it.marker.getElement();if(e)e.firstChild.classList.add('sel');it.marker.setZIndexOffset(3000);it.marker.getTooltip()?.getElement()?.classList.add('on')};
+  mark();setTimeout(mark,1000);
+  it.card.classList.add('on');
+  if(from==='map'||from==='link'){it.card.scrollIntoView({behavior:'smooth',block:'start'})}
+  else if(!wide()){window.scrollTo({top:Math.max(0,it.card.getBoundingClientRect().top+scrollY-document.querySelector('.mapwrap').offsetHeight-130),behavior:'smooth'})}
+}
+applyFilters();
+
+// ---------- regiopagina's
+const app=document.querySelector('.app'), page=document.getElementById('page');
+const ORDER=[['c','Kust en strand'],['n','Natuur'],['k','Historie en dorpen'],['f','Fietsen'],['w','Eten en wijn']];
+let pendingSel=null;
+function pageCard(it){
+  const c=document.createElement('article');c.className='card'+(it.kind==='p'?' compact':it.kind==='s'?' sleep'+(it.e?' e':''):'');c.dataset.id=it.id;c.innerHTML=cardHTML(it);
+  c.querySelector('.links').insertAdjacentHTML('beforeend',`<button type="button" class="onmap" data-map="${it.id}">Toon op kaart</button>`);
+  if(it.kind!=='s'){if(io)io.observe(c);else loadWiki(c)}
+  return c;
+}
+function renderPage(g){
+  const G=GROUPS[g],R=RI[g];page.style.setProperty('--c',rcol(g));
+  const vs=items.filter(it=>it.kind==='v'&&it.g===g), ps=items.filter(it=>it.kind==='p'&&it.g===g), ss=items.filter(it=>it.kind==='s'&&it.g===g);
+  const prev=g>0?`<a href="#regio-${g}">← ${g}</a>`:'', next=g<GROUPS.length-1?`<a href="#regio-${g+2}">${g+2} →</a>`:'';
+  page.innerHTML=`<div class="pg-top"><a href="#kaart">← Terug naar de kaart</a><div class="pg-nav">${prev}${next}</div></div>
+   <header class="pg-hero"><span class="pg-n">${g+1}</span><h1>${esc(G.t)}</h1><div class="sub">${esc(G.sub)} · ${ss.filter(s=>!s.e).length} gratis plekken · ${ss.filter(s=>s.e).length} met stroom · ${ps.length} tips</div><p class="lead">${esc(R.intro)}</p></header>
+   <div class="facts">
+    <div class="fact"><h3>Het landschap</h3><p>${esc(R.land)}</p></div>
+    <div class="fact"><h3>Geschiedenis</h3><p>${esc(R.hist)}</p></div>
+    <div class="fact"><h3>Eten en wijn</h3><p>${esc(R.eten)}</p></div>
+    <div class="fact"><h3>In december</h3><p>${esc(R.seizoen)}</p></div>
+    <div class="fact"><h3>Hoe lang</h3><p>${esc(R.verblijf)}</p></div>
+    <div class="fact"><h3>Mijn advies</h3><p>${esc(G.tip)}</p></div>
+   </div>`;
+  const sec=(title,list,sw)=>{if(!list.length)return;const s=document.createElement('section');s.className='pg-sec';
+    s.innerHTML=`<h2>${sw||''}${esc(title)}</h2><div class="grid"></div>`;const gr=s.querySelector('.grid');list.forEach(it=>gr.appendChild(pageCard(it)));page.appendChild(s)};
+  sec('Plaatsen',vs);
+  sec('Gratis slapen',ss.filter(s=>!s.e),'<span class="ps">P</span>');
+  sec('Betaald met stroom',ss.filter(s=>s.e),'<span class="ps e">€</span>');
+  ORDER.forEach(([t,n])=>sec(n,ps.filter(p=>p.t===t).sort((a,b)=>(b.top||0)-(a.top||0)),`<span class="sw" style="--c:${TC[t]}"></span>`));
+  const bot=document.createElement('div');bot.className='pg-top';bot.style.position='static';bot.style.marginTop='30px';bot.innerHTML=`<a href="#kaart">← Terug naar de kaart</a><div class="pg-nav">${prev}${next}</div>`;page.appendChild(bot);
+}
+page.addEventListener('click',e=>{const b=e.target.closest('[data-map],[data-sid]');if(!b)return;pendingSel=+(b.dataset.map||b.dataset.sid);location.hash='#kaart'});
+function route(){
+  const m=location.hash.match(/^#regio-(\d+)$/);
+  if(m&&GROUPS[+m[1]-1]){app.hidden=true;page.hidden=false;renderPage(+m[1]-1);window.scrollTo(0,0);document.title=GROUPS[+m[1]-1].t+' · Langs de kust naar Jávea';return}
+  document.title='Langs de kust naar Jávea';page.hidden=true;app.hidden=false;
+  setTimeout(()=>{map.invalidateSize();if(!mapReady){fitAll();mapReady=true}if(pendingSel!=null){const id=pendingSel;pendingSel=null;select(id,'list')}if(pendingTr!=null){const t=pendingTr;pendingTr=null;showTrail(t)}},60);
+}
+addEventListener('hashchange',route);
+route();
+</script>
+</body>
+</html>
