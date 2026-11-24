@@ -190,9 +190,8 @@ button:focus-visible,input:focus-visible,a:focus-visible,.card:focus-visible{out
     <div><span class="ps e">€</span>Betaald, met stroom</div>
     <div><span class="ps o">P</span>Gele rand: uit jouw Google Maps</div>
     <div><span class="sq"></span>Iets om te doen of te zien</div>
-    <div><span class="ln w"></span>Wandelpad uit de gids</div>
-    <div><span class="ln f"></span>Fietsroute uit de gids</div>
-    <div><span class="ln o"></span>Alle bewegwijzerde paden (inzoomen)</div>
+    <div><span class="ln w"></span>Wandelpad uit de tips</div>
+    <div><span class="ln f"></span>Fietsroute uit de tips</div>
     <button type="button" id="legtog">Legenda verbergen</button>
    </div>
   </div>
@@ -205,8 +204,8 @@ button:focus-visible,input:focus-visible,a:focus-visible,.card:focus-visible{out
      <div><span class="ps">P</span>Gratis plek. Bij elke plaats staat er minstens één.</div>
      <div><span class="ps e">€</span>Betaald met stroom, je reserve voor als de accu leeg is.</div>
      <div><span class="ps o">P</span>Uit jouw eigen Google Maps-lijsten. Staan ze op Park4Night, dan heb ik ze daar nagecheckt.</div>
-     <div><span class="ln w"></span>De wandelpaden en <span class="ln f"></span> fietsroutes uit de gids staan als lijn op de kaart. Tik op een lijn voor de naam, de lengte en de route naar het begin.</div>
-     <div><span class="ln o"></span>Zoom je in, dan zie je ook alle andere bewegwijzerde wandel- en fietsroutes (GR, PR, EuroVelo). Aan en uit met het lagen-knopje linksonder.</div>
+     <div><span class="ln w"></span><span>Bruin gestreept: een wandelpad dat ik bij een tip noem, zoals het GR-92 langs de baaien.</span></div>
+     <div><span class="ln f"></span><span>Paars: een fietsroute die ik noem, zoals de Via Verde del Mar. Tik op een lijn voor de naam, de lengte en de route naar het begin.</span></div>
     </div>
     <section class="ov"><h2>De 12 regio's</h2><div class="ov-list" id="ov"></div></section>
    </header>
@@ -216,7 +215,7 @@ button:focus-visible,input:focus-visible,a:focus-visible,.card:focus-visible{out
     <div class="filters" id="filters" hidden></div>
    </div>
    <div id="regions"></div>
-   <p class="note">De lijn op de kaart volgt de snelste route over de grote wegen (meestal de AP-7, A-7 of N-340), berekend met OpenStreetMap. Gestreepte stukken zijn optionele uitstapjes. De kilometers en rijtijden bij elke plaats horen bij die route, vanaf de vorige plaats; met de camper ben je meestal iets langer onderweg. Camperplekken, sterren en prijzen zijn op 24 november 2026 gecheckt op Park4Night, met de nieuwste reviews. Plekken uit je eigen lijsten die niet op Park4Night staan zijn niet nagecheckt; dat staat er dan bij. De wandelpaden en fietsroutes komen uit OpenStreetMap, net als de laag met alle bewegwijzerde routes (via Waymarked Trails). Foto's komen van de Spaanse Wikipedia. Check vlak voor vertrek of alles nog klopt.</p>
+   <p class="note">De lijn op de kaart volgt de snelste route over de grote wegen (meestal de AP-7, A-7 of N-340), berekend met OpenStreetMap. Gestreepte stukken zijn optionele uitstapjes. De kilometers en rijtijden bij elke plaats horen bij die route, vanaf de vorige plaats; met de camper ben je meestal iets langer onderweg. Camperplekken, sterren en prijzen zijn op 24 november 2026 gecheckt op Park4Night, met de nieuwste reviews. Plekken uit je eigen lijsten die niet op Park4Night staan zijn niet nagecheckt; dat staat er dan bij. De lijnen van de wandelpaden en fietsroutes heb ik uit OpenStreetMap gehaald, de open kaart waar ook de officiële GR- en PR-paden in staan. Foto's komen van de Spaanse Wikipedia. Check vlak voor vertrek of alles nog klopt.</p>
   </div>
  </div>
 </div>
@@ -510,15 +509,7 @@ const base={
   "Satelliet":L.tileLayer(ESRI+'World_Imagery/MapServer/tile/{z}/{y}/{x}',{maxZoom:19,attribution:'Tiles &copy; Esri, Maxar, Earthstar Geographics'})
 };
 base["Kaart"].addTo(map);
-const WMT='https://tile.waymarkedtrails.org/';
-const over={
-  "Alle wandelpaden (GR, PR, SL)":L.tileLayer(WMT+'hiking/{z}/{x}/{y}.png',{minZoom:10,maxZoom:18,opacity:.8,attribution:'Paden &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>, OpenStreetMap'}),
-  "Alle fietsroutes (EuroVelo, Via Verde)":L.tileLayer(WMT+'cycling/{z}/{x}/{y}.png',{minZoom:10,maxZoom:18,opacity:.8,attribution:'Fietsroutes &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a>, OpenStreetMap'})
-};
-let ovOff={};try{ovOff=JSON.parse(localStorage.getItem('kust-ov')||'{}')}catch(e){}
-Object.entries(over).forEach(([n,l])=>{if(!ovOff[n])l.addTo(map)});
-map.on('overlayadd overlayremove',e=>{ovOff[e.name]=e.type==='overlayremove';try{localStorage.setItem('kust-ov',JSON.stringify(ovOff))}catch(x){}});
-L.control.layers(base,over,{position:'bottomleft'}).addTo(map);
+L.control.layers(base,null,{position:'bottomleft'}).addTo(map);
 let tileErr=0;
 base["Kaart"].on('tileerror',()=>{if(++tileErr===6&&map.hasLayer(base["Kaart"])){map.removeLayer(base["Kaart"]);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap'}).addTo(map)}});
